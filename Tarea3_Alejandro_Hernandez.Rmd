@@ -1,0 +1,2519 @@
+---
+title: "Tarea3_Alejandro_Hernandez"
+author: "Alejandro_Hdez"
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    toc: yes
+    toc_float: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+library(caret)
+library(traineR)
+library(scales)
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Ejercicio 1 
+
+## A
+
+```{r}
+bank <- read.csv('Datos/bank_marketing_v1.csv',sep = ",",header = T,stringsAsFactors = T)
+```
+
+```{r}
+Bank <- bank %>%  na.omit()
+```
+
+
+```{r}
+str(Bank)
+```
+```{r}
+summary(Bank)
+```
+```{r}
+dim(Bank)
+```
+
+## B 
+
+```{r}
+numero.filas                <- nrow(Bank)
+cantidad.validacion.cruzada <- 3 
+cantidad.grupos <- 5
+```
+
+```{r}
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.svm.radial.total <- 0
+pg.svm.linear.total <- 0
+pg.svm.polynomial.total <- 0
+pg.svm.sigmoid.total <- 0
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+lista.pg.svm.radial    <- list()
+lista.pg.svm.linear    <- list()
+lista.pg.svm.polynomial <- list()
+lista.pg.svm.sigmoid   <- list()
+
+# Acumuladores del NO para el gráfico de barras
+no.svm.radial.total <- 0
+no.svm.linear.total <- 0
+no.svm.polynomial.total <- 0
+no.svm.sigmoid.total <- 0
+# Listas para guardar el No en cada experimento para el gráfico de líneas
+lista.no.svm.radial    <- list()
+lista.no.svm.linear    <- list()
+lista.no.svm.polynomial <- list()
+lista.no.svm.sigmoid   <- list()
+
+
+# Acumuladores del SI para el gráfico de barras
+si.svm.radial.total <- 0
+si.svm.linear.total <- 0
+si.svm.polynomial.total <- 0
+si.svm.sigmoid.total <- 0
+# Listas para guardar el SI en cada experimento para el gráfico de líneas
+lista.si.svm.radial    <- list()
+lista.si.svm.linear    <- list()
+lista.si.svm.polynomial <- list()
+lista.si.svm.sigmoid   <- list()
+
+
+
+```
+
+```{r}
+for(i in 1:cantidad.validacion.cruzada){
+  grupos        <- createFolds(1:numero.filas, cantidad.grupos) 
+
+  
+  # Precisión Global para cada Kernel
+  pg.svm.radial <- 0
+  pg.svm.linear <- 0
+  pg.svm.polynomial <- 0
+  pg.svm.sigmoid <- 0  
+  
+  # NO para cada Kernel
+  no.svm.radial <- 0
+  no.svm.linear <- 0
+  no.svm.polynomial <- 0
+  no.svm.sigmoid <- 0 
+  
+   # SI para cada Kernel
+  si.svm.radial <- 0
+  si.svm.linear <- 0
+  si.svm.polynomial <- 0
+  si.svm.sigmoid <- 0  
+  
+  
+  
+  for(k in 1:cantidad.grupos) {
+    muestra       <- grupos[[k]]  # Por ser una lista requiere de doble paréntesis
+    ttesting      <- Bank[muestra, ]
+    taprendizaje  <- Bank[-muestra, ]
+    
+    modelo        <- train.svm(y ~ ., data = taprendizaje, kernel = "radial", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.svm.radial <- pg.svm.radial + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.svm.radial <- no.svm.radial + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.svm.radial <- si.svm.radial + general.indexes(ttesting,prediccion)$category.accuracy[2]
+
+    modelo        <- train.svm(y ~ ., data = taprendizaje, kernel = "linear", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.svm.linear <- pg.svm.linear + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.svm.linear <- no.svm.linear + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.svm.linear <- si.svm.linear + general.indexes(ttesting,prediccion)$category.accuracy[2]
+
+    
+    modelo        <- train.svm(y ~ ., data = taprendizaje, kernel = "polynomial", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.svm.polynomial <- pg.svm.polynomial + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.svm.polynomial <- no.svm.polynomial + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.svm.polynomial <- si.svm.polynomial + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo        <- train.svm(y ~ ., data = taprendizaje, kernel = "sigmoid", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.svm.sigmoid <- pg.svm.sigmoid + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.svm.sigmoid <- no.svm.sigmoid + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.svm.sigmoid <- si.svm.sigmoid + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  }
+  pg.svm.radial <- pg.svm.radial/cantidad.grupos
+  pg.svm.linear <- pg.svm.linear/cantidad.grupos
+  pg.svm.polynomial <- pg.svm.polynomial/cantidad.grupos
+  pg.svm.sigmoid <- pg.svm.sigmoid/cantidad.grupos
+  
+  pg.svm.radial.total <- pg.svm.radial.total + pg.svm.radial
+  pg.svm.linear.total <- pg.svm.linear.total + pg.svm.linear
+  pg.svm.polynomial.total <- pg.svm.polynomial.total + pg.svm.polynomial
+  pg.svm.sigmoid.total <- pg.svm.sigmoid.total + pg.svm.sigmoid
+  
+  lista.pg.svm.radial <- append(lista.pg.svm.radial,pg.svm.radial)  
+  lista.pg.svm.linear <- append(lista.pg.svm.linear,pg.svm.linear)
+  lista.pg.svm.polynomial <- append(lista.pg.svm.polynomial,pg.svm.polynomial)
+  lista.pg.svm.sigmoid <- append(lista.pg.svm.sigmoid,pg.svm.sigmoid)
+  
+  no.svm.radial <- no.svm.radial/cantidad.grupos
+  no.svm.linear <- no.svm.linear/cantidad.grupos
+  no.svm.polynomial <- no.svm.polynomial/cantidad.grupos
+  no.svm.sigmoid <- no.svm.sigmoid/cantidad.grupos
+  
+  si.svm.radial <- si.svm.radial/cantidad.grupos
+  si.svm.linear <- si.svm.linear/cantidad.grupos
+  si.svm.polynomial <- si.svm.polynomial/cantidad.grupos
+  si.svm.sigmoid <- si.svm.sigmoid/cantidad.grupos 
+  
+  
+  no.svm.radial.total <- no.svm.radial.total + no.svm.radial
+  no.svm.linear.total <- no.svm.linear.total + no.svm.linear
+  no.svm.polynomial.total <- no.svm.polynomial.total + no.svm.polynomial
+  no.svm.sigmoid.total <- no.svm.sigmoid.total + no.svm.sigmoid
+  
+  si.svm.radial.total <- si.svm.radial.total + si.svm.radial
+  si.svm.linear.total <- si.svm.linear.total + si.svm.linear
+  si.svm.polynomial.total <- si.svm.polynomial.total + si.svm.polynomial
+  si.svm.sigmoid.total <- si.svm.sigmoid.total + si.svm.sigmoid
+  
+  
+  lista.no.svm.radial <- append(lista.no.svm.radial,no.svm.radial)  
+  lista.no.svm.linear <- append(lista.no.svm.linear,no.svm.linear)
+  lista.no.svm.polynomial <- append(lista.no.svm.polynomial,no.svm.polynomial)
+  lista.no.svm.sigmoid <- append(lista.no.svm.sigmoid,no.svm.sigmoid)  
+  
+  lista.si.svm.radial <- append(lista.si.svm.radial,si.svm.radial)  
+  lista.si.svm.linear <- append(lista.si.svm.linear,si.svm.linear)
+  lista.si.svm.polynomial <- append(lista.si.svm.polynomial,si.svm.polynomial)
+  lista.si.svm.sigmoid <- append(lista.si.svm.sigmoid,si.svm.sigmoid)   
+  
+}
+pg.svm.radial.total <- pg.svm.radial.total/cantidad.validacion.cruzada
+pg.svm.linear.total <- pg.svm.linear.total/cantidad.validacion.cruzada
+pg.svm.polynomial.total <- pg.svm.polynomial.total/cantidad.validacion.cruzada
+pg.svm.sigmoid.total <- pg.svm.sigmoid.total/cantidad.validacion.cruzada
+
+no.svm.radial.total <- no.svm.radial.total/cantidad.validacion.cruzada
+no.svm.linear.total <- no.svm.linear.total/cantidad.validacion.cruzada
+no.svm.polynomial.total <- no.svm.polynomial.total/cantidad.validacion.cruzada
+no.svm.sigmoid.total <- no.svm.sigmoid.total/cantidad.validacion.cruzada
+
+si.svm.radial.total <- si.svm.radial.total/cantidad.validacion.cruzada
+si.svm.linear.total <- si.svm.linear.total/cantidad.validacion.cruzada
+si.svm.polynomial.total <- si.svm.polynomial.total/cantidad.validacion.cruzada
+si.svm.sigmoid.total <- si.svm.sigmoid.total/cantidad.validacion.cruzada
+
+
+```
+
+```{r}
+# Lista de Precisiones Globales para el gráfico de barras
+lista.pg <- list(
+  RADIAL = pg.svm.radial.total, 
+  LINEAR = pg.svm.linear.total,
+  POLINOMIAL = pg.svm.polynomial.total,
+  SIGMOID = pg.svm.sigmoid.total
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  pg = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+# Asigna colores distintos a cada barra y para el líneas
+colores <- rainbow(length(df.pg$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.svm.radial,
+                  lista.pg.svm.linear,
+                  lista.pg.svm.polynomial,
+                  lista.pg.svm.sigmoid)
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global de SVM")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("Radial", "Lineal", "Polynomial", "Sigmoid"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+ggplot(df.pg, aes(x = metodo, y = pg, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(pg)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# Lista de detección del NO para el gráfico de barras
+lista.no <- list(
+  RADIAL = no.svm.radial.total, 
+  LINEAR = no.svm.linear.total,
+  POLINOMIAL = no.svm.polynomial.total,
+  SIGMOID = no.svm.sigmoid.total
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para el líneas
+colores <- rainbow(length(df.no$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(lista.no.svm.radial,
+                  lista.no.svm.linear,
+                  lista.no.svm.polynomial,
+                  lista.no.svm.sigmoid)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO de SVM")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("Radial", "Lineal", "Polynomial", "Sigmoid"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(no)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista de detección del SI para el gráfico de barras
+lista.si <- list(
+  RADIAL = si.svm.radial.total, 
+  LINEAR = si.svm.linear.total,
+  POLINOMIAL = si.svm.polynomial.total,
+  SIGMOID = si.svm.sigmoid.total
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.si))
+
+# Asigna colores distintos a cada barra y para el líneas
+colores <- rainbow(length(df.si$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.si <- cbind(lista.si.svm.radial,
+                  lista.si.svm.linear,
+                  lista.si.svm.polynomial,
+                  lista.si.svm.sigmoid)
+
+# Crea el gráfico de líneas
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SI de SVM")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("Radial", "Lineal", "Polynomial", "Sigmoid"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(si)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SI",
+       x = "Método",
+       y = "Detección del SI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+**con los valores de presion globlal de 89.28%, precision del si 16.4% y precision del no 98.59% el mejor kernel es el linear**
+
+## C 
+
+**Utilizaria el kernal linear por los valores del visto de precision globlal,precision del si y no**
+
+
+# Ejercicio 2
+
+
+```{r}
+numero.filas                <- nrow(Bank)
+cantidad.validacion.cruzada <- 3 
+cantidad.grupos <- 5
+```
+
+```{r}
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.knn.rectangular.total <- 0
+pg.knn.triangular.total <- 0
+pg.knn.epanechnikov.total <- 0
+pg.knn.biweight.total <- 0
+pg.knn.triweight.total <- 0
+pg.knn.cos.total <- 0
+pg.knn.inv.total <- 0
+pg.knn.gaussian.total <- 0
+pg.knn.optimal.total <- 0
+
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+
+lista.pg.knn.rectangular <- list()
+lista.pg.knn.triangular <- list()
+lista.pg.knn.epanechnikov <- list()
+lista.pg.knn.biweight <- list()
+lista.pg.knn.triweight <- list()
+lista.pg.knn.cos <- list()
+lista.pg.knn.inv <- list()
+lista.pg.knn.gaussian <- list()
+lista.pg.knn.optimal <- list()
+
+
+# Acumuladores del NO para el gráfico de barras
+
+no.knn.rectangular.total <- 0
+no.knn.triangular.total <- 0
+no.knn.epanechnikov.total <- 0
+no.knn.biweight.total <- 0
+no.knn.triweight.total <- 0
+no.knn.cos.total <- 0
+no.knn.inv.total <- 0
+no.knn.gaussian.total <- 0
+no.knn.optimal.total <- 0
+
+
+# Listas para guardar el No en cada experimento para el gráfico de líneas
+
+lista.no.knn.rectangular <- list()
+lista.no.knn.triangular <- list()
+lista.no.knn.epanechnikov <- list()
+lista.no.knn.biweight <- list()
+lista.no.knn.triweight <- list()
+lista.no.knn.cos <- list()
+lista.no.knn.inv <- list()
+lista.no.knn.gaussian <- list()
+lista.no.knn.optimal <- list()
+
+# Acumuladores del SI para el gráfico de barras
+
+si.knn.rectangular.total <- 0
+si.knn.triangular.total <- 0
+si.knn.epanechnikov.total <- 0
+si.knn.biweight.total <- 0
+si.knn.triweight.total <- 0
+si.knn.cos.total <- 0
+si.knn.inv.total <- 0
+si.knn.gaussian.total <- 0
+si.knn.optimal.total <- 0
+
+
+# Listas para guardar el SI en cada experimento para el gráfico de líneas
+
+lista.si.knn.rectangular <- list()
+lista.si.knn.triangular <- list()
+lista.si.knn.epanechnikov <- list()
+lista.si.knn.biweight <- list()
+lista.si.knn.triweight <- list()
+lista.si.knn.cos <- list()
+lista.si.knn.inv <- list()
+lista.si.knn.gaussian <- list()
+lista.si.knn.optimal <- list()
+```
+
+```{r}
+for(i in 1:cantidad.validacion.cruzada){
+  grupos        <- createFolds(1:numero.filas, cantidad.grupos) 
+
+  
+  # Precisión Global para cada Kernel
+ 
+  
+  pg.knn.rectangular <- 0
+  pg.knn.triangular <- 0
+  pg.knn.epanechnikov <- 0
+  pg.knn.biweight <- 0
+  pg.knn.triweight <- 0
+  pg.knn.cos <- 0
+  pg.knn.inv <- 0
+  pg.knn.gaussian <- 0
+  pg.knn.optimal <- 0
+  
+  # NO para cada Kernel
+
+  no.knn.rectangular <- 0
+  no.knn.triangular <- 0
+  no.knn.epanechnikov <- 0
+  no.knn.biweight <- 0
+  no.knn.triweight <- 0
+  no.knn.cos <- 0
+  no.knn.inv <- 0
+  no.knn.gaussian <- 0
+  no.knn.optimal <- 0
+  
+   # SI para cada Kernel
+  
+  si.knn.rectangular <- 0
+  si.knn.triangular <- 0
+  si.knn.epanechnikov <- 0
+  si.knn.biweight <- 0
+  si.knn.triweight <- 0
+  si.knn.cos <- 0
+  si.knn.inv <- 0
+  si.knn.gaussian <- 0
+  si.knn.optimal <- 0
+  
+  for(k in 1:cantidad.grupos) {
+    muestra       <- grupos[[k]]  # Por ser una lista requiere de doble paréntesis
+    ttesting      <- Bank[muestra, ]
+    taprendizaje  <- Bank[-muestra, ]
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "rectangular", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.rectangular <- pg.knn.rectangular + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.rectangular <- no.knn.rectangular + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.rectangular <- si.knn.rectangular + general.indexes(ttesting,prediccion)$category.accuracy[2]
+
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "triangular", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.triangular <- pg.knn.triangular + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.triangular <- no.knn.triangular + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.triangular <- si.knn.triangular + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "epanechnikov", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.epanechnikov <- pg.knn.epanechnikov + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.epanechnikov <- no.knn.epanechnikov + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.epanechnikov <- si.knn.epanechnikov + general.indexes(ttesting,prediccion)$category.accuracy[2]  
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "biweight", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.biweight <- pg.knn.biweight + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.biweight <- no.knn.biweight + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.biweight <- si.knn.biweight + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "triweight", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.triweight <- pg.knn.triweight + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.triweight <- no.knn.triweight + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.triweight <- si.knn.triweight + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "cos", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.cos <- pg.knn.cos + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.cos <- no.knn.cos + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.cos <- si.knn.cos + general.indexes(ttesting,prediccion)$category.accuracy[2]  
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "inv", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.inv <- pg.knn.inv + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.inv <- no.knn.inv + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.inv <- si.knn.inv + general.indexes(ttesting,prediccion)$category.accuracy[2] 
+    
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "gaussian", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.gaussian <- pg.knn.gaussian + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.gaussian <- no.knn.gaussian + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.gaussian <- si.knn.gaussian + general.indexes(ttesting,prediccion)$category.accuracy[2]   
+  
+    modelo        <- train.knn(y ~ ., data = taprendizaje, kernel = "optimal", probability = FALSE)
+    prediccion    <- predict(modelo, ttesting)
+    pg.knn.optimal <- pg.knn.optimal + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn.optimal <- no.knn.optimal + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn.optimal <- si.knn.optimal + general.indexes(ttesting,prediccion)$category.accuracy[2]   
+    
+  }
+
+  pg.knn.rectangular <- pg.knn.rectangular /cantidad.grupos
+  pg.knn.triangular <- pg.knn.triangular /cantidad.grupos
+  pg.knn.epanechnikov <- pg.knn.epanechnikov /cantidad.grupos
+  pg.knn.biweight <- pg.knn.biweight /cantidad.grupos
+  pg.knn.triweight <- pg.knn.triweight /cantidad.grupos
+  pg.knn.cos <- pg.knn.cos /cantidad.grupos
+  pg.knn.inv <- pg.knn.inv /cantidad.grupos
+  pg.knn.gaussian <- pg.knn.gaussian /cantidad.grupos
+  pg.knn.optimal <- pg.knn.optimal /cantidad.grupos
+  
+  
+  pg.knn.rectangular.total <- pg.knn.rectangular.total + pg.knn.rectangular
+  pg.knn.triangular.total <- pg.knn.triangular.total + pg.knn.triangular
+  pg.knn.epanechnikov.total <- pg.knn.epanechnikov.total + pg.knn.epanechnikov
+  pg.knn.biweight.total <- pg.knn.biweight.total + pg.knn.biweight
+  pg.knn.triweight.total <- pg.knn.triweight.total + pg.knn.triweight
+  pg.knn.cos.total <- pg.knn.cos.total + pg.knn.cos
+  pg.knn.inv.total <- pg.knn.inv.total + pg.knn.inv
+  pg.knn.gaussian.total <- pg.knn.gaussian.total + pg.knn.gaussian
+  pg.knn.optimal.total <- pg.knn.optimal.total + pg.knn.optimal
+  
+  lista.pg.knn.rectangular <- append(lista.pg.knn.rectangular,pg.knn.rectangular)
+  lista.pg.knn.triangular <- append(lista.pg.knn.triangular,pg.knn.triangular)
+  lista.pg.knn.epanechnikov <- append(lista.pg.knn.epanechnikov,pg.knn.epanechnikov)
+  lista.pg.knn.biweight <- append(lista.pg.knn.biweight,pg.knn.biweight)
+  lista.pg.knn.triweight <- append(lista.pg.knn.triweight,pg.knn.triweight)
+  lista.pg.knn.cos <- append(lista.pg.knn.cos,pg.knn.cos)
+  lista.pg.knn.inv <- append(lista.pg.knn.inv,pg.knn.inv)
+  lista.pg.knn.gaussian <- append(lista.pg.knn.gaussian,pg.knn.gaussian)
+  lista.pg.knn.optimal <- append(lista.pg.knn.optimal,pg.knn.optimal)
+  
+  no.knn.rectangular <- no.knn.rectangular/cantidad.grupos
+  no.knn.triangular <- no.knn.triangular/cantidad.grupos
+  no.knn.epanechnikov <- no.knn.epanechnikov/cantidad.grupos
+  no.knn.biweight <- no.knn.biweight/cantidad.grupos
+  no.knn.triweight <- no.knn.triweight/cantidad.grupos
+  no.knn.cos <- no.knn.cos/cantidad.grupos
+  no.knn.inv <- no.knn.inv/cantidad.grupos
+  no.knn.gaussian <- no.knn.gaussian/cantidad.grupos
+  no.knn.optimal <- no.knn.optimal/cantidad.grupos
+  
+  si.knn.rectangular <- si.knn.rectangular/cantidad.grupos
+  si.knn.triangular <- si.knn.triangular/cantidad.grupos
+  si.knn.epanechnikov <- si.knn.epanechnikov/cantidad.grupos
+  si.knn.biweight <- si.knn.biweight/cantidad.grupos
+  si.knn.triweight <- si.knn.triweight/cantidad.grupos
+  si.knn.cos <- si.knn.cos/cantidad.grupos
+  si.knn.inv <- si.knn.inv/cantidad.grupos
+  si.knn.gaussian <- si.knn.gaussian/cantidad.grupos
+  si.knn.optimal <- si.knn.optimal/cantidad.grupos
+  
+  no.knn.rectangular.total <- no.knn.rectangular.total + no.knn.rectangular
+  no.knn.triangular.total <- no.knn.triangular.total + no.knn.triangular
+  no.knn.epanechnikov.total <- no.knn.epanechnikov.total + no.knn.epanechnikov
+  no.knn.biweight.total <- no.knn.biweight.total + no.knn.biweight
+  no.knn.triweight.total <- no.knn.triweight.total + no.knn.triweight
+  no.knn.cos.total <- no.knn.cos.total + no.knn.cos
+  no.knn.inv.total <- no.knn.inv.total + no.knn.inv
+  no.knn.gaussian.total <- no.knn.gaussian.total + no.knn.gaussian
+  no.knn.optimal.total <- no.knn.optimal.total + no.knn.optimal
+  
+  si.knn.rectangular.total <- si.knn.rectangular.total + si.knn.rectangular
+  si.knn.triangular.total <- si.knn.triangular.total + si.knn.triangular
+  si.knn.epanechnikov.total <- si.knn.epanechnikov.total + si.knn.epanechnikov
+  si.knn.biweight.total <- si.knn.biweight.total + si.knn.biweight
+  si.knn.triweight.total <- si.knn.triweight.total + si.knn.triweight
+  si.knn.cos.total <- si.knn.cos.total + si.knn.cos
+  si.knn.inv.total <- si.knn.inv.total + si.knn.inv
+  si.knn.gaussian.total <- si.knn.gaussian.total + si.knn.gaussian
+  si.knn.optimal.total <- si.knn.optimal.total + si.knn.optimal
+  
+  lista.no.knn.rectangular <- append(lista.no.knn.rectangular,no.knn.rectangular)
+  lista.no.knn.triangular <- append(lista.no.knn.triangular,no.knn.triangular)
+  lista.no.knn.epanechnikov <- append(lista.no.knn.epanechnikov,no.knn.epanechnikov)
+  lista.no.knn.biweight <- append(lista.no.knn.biweight,no.knn.biweight)
+  lista.no.knn.triweight <- append(lista.no.knn.triweight,no.knn.triweight)
+  lista.no.knn.cos <- append(lista.no.knn.cos,no.knn.cos)
+  lista.no.knn.inv <- append(lista.no.knn.inv,no.knn.inv)
+  lista.no.knn.gaussian <- append(lista.no.knn.gaussian,no.knn.gaussian)
+  lista.no.knn.optimal <- append(lista.no.knn.optimal,no.knn.optimal)
+  
+  lista.si.knn.rectangular <- append(lista.si.knn.rectangular,si.knn.rectangular)
+  lista.si.knn.triangular <- append(lista.si.knn.triangular,si.knn.triangular)
+  lista.si.knn.epanechnikov <- append(lista.si.knn.epanechnikov,si.knn.epanechnikov)
+  lista.si.knn.biweight <- append(lista.si.knn.biweight,si.knn.biweight)
+  lista.si.knn.triweight <- append(lista.si.knn.triweight,si.knn.triweight)
+  lista.si.knn.cos <- append(lista.si.knn.cos,si.knn.cos)
+  lista.si.knn.inv <- append(lista.si.knn.inv,si.knn.inv)
+  lista.si.knn.gaussian <- append(lista.si.knn.gaussian,si.knn.gaussian)
+  lista.si.knn.optimal <- append(lista.si.knn.optimal,si.knn.optimal)
+  
+  
+}
+
+pg.knn.rectangular.total <- pg.knn.rectangular.total /cantidad.validacion.cruzada
+pg.knn.triangular.total <- pg.knn.triangular.total /cantidad.validacion.cruzada
+pg.knn.epanechnikov.total <- pg.knn.epanechnikov.total /cantidad.validacion.cruzada
+pg.knn.biweight.total <- pg.knn.biweight.total /cantidad.validacion.cruzada
+pg.knn.triweight.total <- pg.knn.triweight.total /cantidad.validacion.cruzada
+pg.knn.cos.total <- pg.knn.cos.total /cantidad.validacion.cruzada
+pg.knn.inv.total <- pg.knn.inv.total /cantidad.validacion.cruzada
+pg.knn.gaussian.total <- pg.knn.gaussian.total /cantidad.validacion.cruzada
+pg.knn.optimal.total <- pg.knn.optimal.total /cantidad.validacion.cruzada
+  
+no.knn.rectangular.total <- no.knn.rectangular.total /cantidad.validacion.cruzada
+no.knn.triangular.total <- no.knn.triangular.total /cantidad.validacion.cruzada
+no.knn.epanechnikov.total <- no.knn.epanechnikov.total /cantidad.validacion.cruzada
+no.knn.biweight.total <- no.knn.biweight.total /cantidad.validacion.cruzada
+no.knn.triweight.total <- no.knn.triweight.total /cantidad.validacion.cruzada
+no.knn.cos.total <- no.knn.cos.total /cantidad.validacion.cruzada
+no.knn.inv.total <- no.knn.inv.total /cantidad.validacion.cruzada
+no.knn.gaussian.total <- no.knn.gaussian.total /cantidad.validacion.cruzada
+no.knn.optimal.total <- no.knn.optimal.total /cantidad.validacion.cruzada
+  
+si.knn.rectangular.total <- si.knn.rectangular.total /cantidad.validacion.cruzada
+si.knn.triangular.total <- si.knn.triangular.total /cantidad.validacion.cruzada
+si.knn.epanechnikov.total <- si.knn.epanechnikov.total /cantidad.validacion.cruzada
+si.knn.biweight.total <- si.knn.biweight.total /cantidad.validacion.cruzada
+si.knn.triweight.total <- si.knn.triweight.total /cantidad.validacion.cruzada
+si.knn.cos.total <- si.knn.cos.total /cantidad.validacion.cruzada
+si.knn.inv.total <- si.knn.inv.total /cantidad.validacion.cruzada
+si.knn.gaussian.total <- si.knn.gaussian.total /cantidad.validacion.cruzada
+si.knn.optimal.total <- si.knn.optimal.total /cantidad.validacion.cruzada
+
+
+```
+
+```{r}
+# Lista de Precisiones Globales para el gráfico de barras
+lista.pg <- list(
+  Rectangular = pg.knn.rectangular.total, 
+  Triangular = pg.knn.triangular.total,
+  Epanechnikov = pg.knn.epanechnikov.total,
+  Biweight = pg.knn.biweight.total,
+  triweight = pg.knn.triweight.total,
+  Cos = pg.knn.cos.total,
+  Inv= pg.knn.inv.total,
+  Gaussian = pg.knn.gaussian.total,
+  Optimal = pg.knn.optimal.total
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  pg = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+# Asigna colores distintos a cada barra y para el líneas
+colores <- rainbow(length(df.pg$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.knn.rectangular,
+                  lista.pg.knn.triangular,
+                  lista.pg.knn.epanechnikov,
+                  lista.pg.knn.biweight,
+                  lista.pg.knn.triweight,
+                  lista.pg.knn.cos,
+                  lista.pg.knn.inv,
+                  lista.pg.knn.gaussian,
+                  lista.pg.knn.optimal
+                  )
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global de KNN")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("rectangular", "triangular", "epanechnikov", "biweight","triweight","cos","inv","gaussian","optimal"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+ggplot(df.pg, aes(x = metodo, y = pg, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(pg)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+
+```{r}
+# Lista de detección del NO para el gráfico de barras
+lista.no <- list(
+
+  Rectangular = no.knn.rectangular.total, 
+  Triangular = no.knn.triangular.total,
+  Epanechnikov = no.knn.epanechnikov.total,
+  Biweight = no.knn.biweight.total,
+  triweight = no.knn.triweight.total,
+  Cos = no.knn.cos.total,
+  Inv= no.knn.inv.total,
+  Gaussian = no.knn.gaussian.total,
+  Optimal = no.knn.optimal.total
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para el líneas
+colores <- rainbow(length(df.no$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(
+                  lista.no.knn.rectangular,
+                  lista.no.knn.triangular,
+                  lista.no.knn.epanechnikov,
+                  lista.no.knn.biweight,
+                  lista.no.knn.triweight,
+                  lista.no.knn.cos,
+                  lista.no.knn.inv,
+                  lista.no.knn.gaussian,
+                  lista.no.knn.optimal)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO de KNN")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("rectangular", "triangular", "epanechnikov", "biweight","triweight","cos","inv","gaussian","optimal"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(no)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# Lista de detección del SI para el gráfico de barras
+lista.si <- list(
+  Rectangular = si.knn.rectangular.total, 
+  Triangular = si.knn.triangular.total,
+  Epanechnikov = si.knn.epanechnikov.total,
+  Biweight = si.knn.biweight.total,
+  triweight = si.knn.triweight.total,
+  Cos = si.knn.cos.total,
+  Inv= si.knn.inv.total,
+  Gaussian = si.knn.gaussian.total,
+  Optimal = si.knn.optimal.total
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.si))
+
+# Asigna colores distintos a cada barra y para el líneas
+colores <- rainbow(length(df.si$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.si <- cbind(
+                  lista.si.knn.rectangular,
+                  lista.si.knn.triangular,
+                  lista.si.knn.epanechnikov,
+                  lista.si.knn.biweight,
+                  lista.si.knn.triweight,
+                  lista.si.knn.cos,
+                  lista.si.knn.inv,
+                  lista.si.knn.gaussian,
+                  lista.si.knn.optimal
+                  )
+
+# Crea el gráfico de líneas
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SI de SVM")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("rectangular", "triangular", "epanechnikov", "biweight","triweight","cos","inv","gaussian","optimal"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(si)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SI",
+       x = "Método",
+       y = "Detección del SI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## B 
+
+**El mejor algoritmo seria el Triweight con una presion global de 88.69%, con la precision del no con 95.66% y la precision del si de 35.22%**
+
+# Ejercicio 3 
+
+## A 
+
+```{r}
+numero.filas                <- nrow(Bank)
+cantidad.validacion.cruzada <- 3
+cantidad.grupos             <- 5
+
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.svm.total <- 0
+pg.knn.total <- 0
+pg.bayes.total <- 0
+pg.arbol.total <- 0
+pg.bosque.total <- 0    
+pg.potenciacion.total <- 0
+pg.red.total <- 0    
+pg.xgboost.total <- 0  
+pg.glm.total <- 0   
+pg.glmnet.total <- 0 
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+lista.pg.svm <- list()
+lista.pg.knn <- list()
+lista.pg.bayes <- list()
+lista.pg.arbol <- list()
+lista.pg.bosque <- list()   
+lista.pg.potenciacion <- list()
+lista.pg.red <- list()   
+lista.pg.xgboost <- list()
+lista.pg.glm <- list() 
+lista.pg.glmnet <- list()
+
+# Acumuladores del NO para el gráfico de barras
+no.svm.total <- 0
+no.knn.total <- 0
+no.bayes.total <- 0
+no.arbol.total <- 0
+no.bosque.total <- 0    
+no.potenciacion.total <- 0
+no.red.total <- 0    
+no.xgboost.total <- 0  
+no.glm.total <- 0   
+no.glmnet.total <- 0 
+# Listas para guardar lel No en cada experimento para el gráfico de líneas
+lista.no.svm <- list()
+lista.no.knn <- list()
+lista.no.bayes <- list()
+lista.no.arbol <- list()
+lista.no.bosque <- list()   
+lista.no.potenciacion <- list()
+lista.no.red <- list()   
+lista.no.xgboost <- list()
+lista.no.glm <- list() 
+lista.no.glmnet <- list()
+
+# Acumuladores del SI para el gráfico de barras
+si.svm.total <- 0
+si.knn.total <- 0
+si.bayes.total <- 0
+si.arbol.total <- 0
+si.bosque.total <- 0    
+si.potenciacion.total <- 0
+si.red.total <- 0    
+si.xgboost.total <- 0  
+si.glm.total <- 0   
+si.glmnet.total <- 0 
+# Listas para guardar del SI en cada experimento para el gráfico de líneas
+lista.si.svm <- list()
+lista.si.knn <- list()
+lista.si.bayes <- list()
+lista.si.arbol <- list()
+lista.si.bosque <- list()   
+lista.si.potenciacion <- list()
+lista.si.red <- list()   
+lista.si.xgboost <- list()
+lista.si.glm <- list() 
+lista.si.glmnet <- list()
+
+```
+
+```{r}
+# Validación cruzada 3 veces
+for (i in 1:cantidad.validacion.cruzada) {
+  grupos <- createFolds(1:numero.filas, cantidad.grupos) # Crea los 10 grupos
+  # Acumuladores de la Precisión Global para el gráfico de barras
+  pg.svm <- 0
+  pg.knn <- 0
+  pg.bayes <- 0
+  pg.arbol <- 0
+  pg.bosque <- 0    
+  pg.potenciacion <- 0
+  pg.red <- 0    
+  pg.xgboost <- 0  
+  pg.glm <- 0   
+  pg.glmnet <- 0   
+  
+  # Acumuladores del NO para el gráfico de barras
+  no.svm <- 0
+  no.knn <- 0
+  no.bayes <- 0
+  no.arbol <- 0
+  no.bosque <- 0    
+  no.potenciacion <- 0
+  no.red <- 0    
+  no.xgboost <- 0  
+  no.glm <- 0   
+  no.glmnet <- 0 
+
+  # Acumuladores del SI para el gráfico de barras
+  si.svm <- 0
+  si.knn <- 0
+  si.bayes <- 0
+  si.arbol <- 0
+  si.bosque <- 0    
+  si.potenciacion <- 0
+  si.red <- 0    
+  si.xgboost <- 0  
+  si.glm <- 0   
+  si.glmnet <- 0 
+
+ # Este ciclo es el que hace validación cruzada con 5 grupos
+  for (k in 1:cantidad.grupos) {
+    muestra   <- grupos[[k]] # Por ser una lista requiere de doble paréntesis
+    ttesting  <- Bank[muestra, ]
+    ttraining <- Bank[-muestra, ]
+    
+    modelo          <- train.svm(y ~ ., data = ttraining, kernel = "linear", probability = FALSE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.svm <- pg.svm + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.svm <- no.svm + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.svm <- si.svm + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.knn(y ~ ., data = ttraining, kmax = 30,kernel = "triweight")
+    prediccion      <- predict(modelo, ttesting)
+    pg.knn <- pg.knn + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn <- no.knn + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn <- si.knn + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    
+    modelo          <- train.bayes(y ~ ., data = ttraining)
+    prediccion      <- predict(modelo, ttesting)
+    pg.bayes <- pg.bayes + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.bayes <- no.bayes + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.bayes <- si.bayes + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.rpart(y ~ ., data = ttraining)
+    prediccion      <- predict(modelo, ttesting)
+    pg.arbol <- pg.arbol + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.arbol <- no.arbol + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.arbol <- si.arbol + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.randomForest(y ~ ., data = ttraining)
+    prediccion      <- predict(modelo, ttesting)
+    pg.bosque <- pg.bosque + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.bosque <- no.bosque + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.bosque <- si.bosque + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.ada(y ~ ., data = ttraining, iter = 10, nu = 1, type = "discrete")
+    prediccion      <- predict(modelo, ttesting)
+    pg.potenciacion <- pg.potenciacion + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.potenciacion <- no.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.potenciacion <- si.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.nnet(y ~ ., data = ttraining, size = 10, MaxNWts = 5000, 
+                                  rang = 0.01, decay = 5e-4, maxit = 45, trace = TRUE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.red <- pg.red + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.red <- no.red + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.red <- si.red + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.xgboost(y ~ ., data = ttraining, nrounds = 30, maximize = F, eval_metric = "error", verbose = 0)
+    prediccion      <- predict(modelo, ttesting)
+    pg.xgboost <- pg.xgboost + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.xgboost <- no.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.xgboost <- si.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.glm(y ~ ., data = ttraining)
+    prediccion      <- predict(modelo, ttesting)
+    pg.glm <- pg.glm + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.glm <- no.glm + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.glm <- si.glm + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.glmnet(y ~ ., data = ttraining, standardize = TRUE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.glmnet <- pg.glmnet + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.glmnet <- no.glmnet + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.glmnet <- si.glmnet + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  }
+  pg.svm <- pg.svm/cantidad.grupos
+  pg.knn <- pg.knn/cantidad.grupos
+  pg.bayes <- pg.bayes/cantidad.grupos
+  pg.arbol <- pg.arbol/cantidad.grupos
+  pg.bosque <- pg.bosque/cantidad.grupos
+  pg.potenciacion <- pg.potenciacion/cantidad.grupos
+  pg.red <- pg.red/cantidad.grupos
+  pg.xgboost <- pg.xgboost/cantidad.grupos
+  pg.glm <- pg.glm/cantidad.grupos
+  pg.glmnet <- pg.glmnet/cantidad.grupos  
+
+  pg.svm.total <- pg.svm.total + pg.svm
+  pg.knn.total <- pg.knn.total + pg.knn
+  pg.bayes.total <- pg.bayes.total + pg.bayes
+  pg.arbol.total <- pg.arbol.total + pg.arbol
+  pg.bosque.total <- pg.bosque.total + pg.bosque
+  pg.potenciacion.total <- pg.potenciacion.total + pg.potenciacion
+  pg.red.total <- pg.red.total + pg.red
+  pg.xgboost.total <- pg.xgboost.total + pg.xgboost
+  pg.glm.total <- pg.glm.total + pg.glm
+  pg.glmnet.total <- pg.glmnet.total + pg.glmnet   
+  
+  lista.pg.svm <- append(lista.pg.svm,pg.svm)
+  lista.pg.knn <- append(lista.pg.knn,pg.knn)
+  lista.pg.bayes <- append(lista.pg.bayes,pg.bayes)
+  lista.pg.arbol <- append(lista.pg.arbol,pg.arbol)
+  lista.pg.bosque <- append(lista.pg.bosque,pg.bosque)
+  lista.pg.potenciacion <- append(lista.pg.potenciacion,pg.potenciacion)
+  lista.pg.red <- append(lista.pg.red,pg.red)
+  lista.pg.xgboost <- append(lista.pg.xgboost,pg.xgboost)
+  lista.pg.glm <- append(lista.pg.glm,pg.glm)
+  lista.pg.glmnet <-append(lista.pg.glmnet,pg.glmnet) 
+
+  no.svm <- no.svm/cantidad.grupos
+  no.knn <- no.knn/cantidad.grupos
+  no.bayes <- no.bayes/cantidad.grupos
+  no.arbol <- no.arbol/cantidad.grupos
+  no.bosque <- no.bosque/cantidad.grupos
+  no.potenciacion <- no.potenciacion/cantidad.grupos
+  no.red <- no.red/cantidad.grupos
+  no.xgboost <- no.xgboost/cantidad.grupos
+  no.glm <- no.glm/cantidad.grupos
+  no.glmnet <- no.glmnet/cantidad.grupos  
+  
+  si.svm <- si.svm/cantidad.grupos
+  si.knn <- si.knn/cantidad.grupos
+  si.bayes <- si.bayes/cantidad.grupos
+  si.arbol <- si.arbol/cantidad.grupos
+  si.bosque <- si.bosque/cantidad.grupos
+  si.potenciacion <- si.potenciacion/cantidad.grupos
+  si.red <- si.red/cantidad.grupos
+  si.xgboost <- si.xgboost/cantidad.grupos
+  si.glm <- si.glm/cantidad.grupos
+  si.glmnet <- si.glmnet/cantidad.grupos  
+
+  no.svm.total <- no.svm.total + no.svm
+  no.knn.total <- no.knn.total + no.knn
+  no.bayes.total <- no.bayes.total + no.bayes
+  no.arbol.total <- no.arbol.total + no.arbol
+  no.bosque.total <- no.bosque.total + no.bosque
+  no.potenciacion.total <- no.potenciacion.total + no.potenciacion
+  no.red.total <- no.red.total + no.red
+  no.xgboost.total <- no.xgboost.total + no.xgboost
+  no.glm.total <- no.glm.total + no.glm
+  no.glmnet.total <- no.glmnet.total + no.glmnet   
+  
+  si.svm.total <- si.svm.total + si.svm
+  si.knn.total <- si.knn.total + si.knn
+  si.bayes.total <- si.bayes.total + si.bayes
+  si.arbol.total <- si.arbol.total + si.arbol
+  si.bosque.total <- si.bosque.total + si.bosque
+  si.potenciacion.total <- si.potenciacion.total + si.potenciacion
+  si.red.total <- si.red.total + si.red
+  si.xgboost.total <- si.xgboost.total + si.xgboost
+  si.glm.total <- si.glm.total + si.glm
+  si.glmnet.total <- si.glmnet.total + si.glmnet  
+  
+  lista.no.svm <- append(lista.no.svm,no.svm)
+  lista.no.knn <- append(lista.no.knn,no.knn)
+  lista.no.bayes <- append(lista.no.bayes,no.bayes)
+  lista.no.arbol <- append(lista.no.arbol,no.arbol)
+  lista.no.bosque <- append(lista.no.bosque,no.bosque)
+  lista.no.potenciacion <- append(lista.no.potenciacion,no.potenciacion)
+  lista.no.red <- append(lista.no.red,no.red)
+  lista.no.xgboost <- append(lista.no.xgboost,no.xgboost)
+  lista.no.glm <- append(lista.no.glm,no.glm)
+  lista.no.glmnet <-append(lista.no.glmnet,no.glmnet) 
+  
+  lista.si.svm <- append(lista.si.svm,si.svm)
+  lista.si.knn <- append(lista.si.knn,si.knn)
+  lista.si.bayes <- append(lista.si.bayes,si.bayes)
+  lista.si.arbol <- append(lista.si.arbol,si.arbol)
+  lista.si.bosque <- append(lista.si.bosque,si.bosque)
+  lista.si.potenciacion <- append(lista.si.potenciacion,si.potenciacion)
+  lista.si.red <- append(lista.si.red,si.red)
+  lista.si.xgboost <- append(lista.si.xgboost,si.xgboost)
+  lista.si.glm <- append(lista.si.glm,si.glm)
+  lista.si.glmnet <-append(lista.si.glmnet,si.glmnet) 
+}
+pg.svm.total <- pg.svm.total/cantidad.validacion.cruzada
+pg.knn.total <- pg.knn.total/cantidad.validacion.cruzada
+pg.bayes.total <- pg.bayes.total/cantidad.validacion.cruzada
+pg.arbol.total <- pg.arbol.total/cantidad.validacion.cruzada
+pg.bosque.total <- pg.bosque.total/cantidad.validacion.cruzada
+pg.potenciacion.total <- pg.potenciacion.total/cantidad.validacion.cruzada
+pg.red.total <- pg.red.total/cantidad.validacion.cruzada
+pg.xgboost.total <- pg.xgboost.total/cantidad.validacion.cruzada
+pg.glm.total <- pg.glm.total/cantidad.validacion.cruzada
+pg.glmnet.total <- pg.glmnet.total/cantidad.validacion.cruzada
+
+no.svm.total <- no.svm.total/cantidad.validacion.cruzada
+no.knn.total <- no.knn.total/cantidad.validacion.cruzada
+no.bayes.total <- no.bayes.total/cantidad.validacion.cruzada
+no.arbol.total <- no.arbol.total/cantidad.validacion.cruzada
+no.bosque.total <- no.bosque.total/cantidad.validacion.cruzada
+no.potenciacion.total <- no.potenciacion.total/cantidad.validacion.cruzada
+no.red.total <- no.red.total/cantidad.validacion.cruzada
+no.xgboost.total <- no.xgboost.total/cantidad.validacion.cruzada
+no.glm.total <- no.glm.total/cantidad.validacion.cruzada
+no.glmnet.total <- no.glmnet.total/cantidad.validacion.cruzada
+
+
+si.svm.total <- si.svm.total/cantidad.validacion.cruzada
+si.knn.total <- si.knn.total/cantidad.validacion.cruzada
+si.bayes.total <- si.bayes.total/cantidad.validacion.cruzada
+si.arbol.total <- si.arbol.total/cantidad.validacion.cruzada
+si.bosque.total <- si.bosque.total/cantidad.validacion.cruzada
+si.potenciacion.total <- si.potenciacion.total/cantidad.validacion.cruzada
+si.red.total <- si.red.total/cantidad.validacion.cruzada
+si.xgboost.total <- si.xgboost.total/cantidad.validacion.cruzada
+si.glm.total <- si.glm.total/cantidad.validacion.cruzada
+si.glmnet.total <- si.glmnet.total/cantidad.validacion.cruzada
+```
+```{r}
+# Lista de precisiones globales para el gráfico de barras
+lista.pg <- list(
+  SVM = pg.svm.total, 
+  KNN = pg.knn.total,
+  BAYES = pg.bayes.total,
+  ARBOL = pg.arbol.total,
+  BOSQUES = pg.bosque.total,
+  POTENCIACIÓN = pg.potenciacion.total,  
+  RED = pg.red.total,
+  XGBOOSTING = pg.xgboost.total,
+  GLM = pg.glm.total,
+  GLMNET = pg.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.pg$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.svm,
+                        lista.pg.knn,
+                        lista.pg.bayes,
+                        lista.pg.arbol,
+                        lista.pg.bosque,
+                        lista.pg.potenciacion,
+                        lista.pg.red,
+                        lista.pg.xgboost,
+                        lista.pg.glm,
+                        lista.pg.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(precision)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del NO para el gráfico de barras
+lista.no <- list(
+  SVM = no.svm.total, 
+  KNN = no.knn.total,
+  BAYES = no.bayes.total,
+  ARBOL = no.arbol.total,
+  BOSQUES = no.bosque.total,
+  POTENCIACIÓN = no.potenciacion.total,  
+  RED = no.red.total,
+  XGBOOSTING = no.xgboost.total,
+  GLM = no.glm.total,
+  GLMNET = no.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.no$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(lista.no.svm,
+                        lista.no.knn,
+                        lista.no.bayes,
+                        lista.no.arbol,
+                        lista.no.bosque,
+                        lista.no.potenciacion,
+                        lista.no.red,
+                        lista.no.xgboost,
+                        lista.no.glm,
+                        lista.no.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(no)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# Lista del SI para el gráfico de barras
+lista.si <- list(
+  SVM = si.svm.total, 
+  KNN = si.knn.total,
+  BAYES = si.bayes.total,
+  ARBOL = si.arbol.total,
+  BOSQUES = si.bosque.total,
+  POTENCIACIÓN = si.potenciacion.total,  
+  RED = si.red.total,
+  XGBOOSTING = si.xgboost.total,
+  GLM = si.glm.total,
+  GLMNET = si.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.si$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.si <- cbind(lista.si.svm,
+                        lista.si.knn,
+                        lista.si.bayes,
+                        lista.si.arbol,
+                        lista.si.bosque,
+                        lista.si.potenciacion,
+                        lista.si.red,
+                        lista.si.xgboost,
+                        lista.si.glm,
+                        lista.si.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SI")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(si)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SI",
+       x = "Método",
+       y = "Detección del SI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+**Con la cantidad de validaciones cruzadas de 3 y los 5 grupos, se puede observar diferencias en los metodos para observar cual es el mejor metodo con las precisiones, aun cuando lo recomendable es 5 y 10**
+
+## B 
+
+**El mejor metodo seria el de bosques segun la informacion obtenida porque cuenta con una precision global de 90.0%, la precision del no con 96.767% y la precision del si con 38.06%**
+
+
+# Ejercicio 4 
+
+```{r}
+# Genera el modelo con 80% de los datos para training y 20% para testing
+muestra      <- createDataPartition(y = Bank$y, p = 0.80, list = F)
+taprendizaje <- Bank[muestra, ]
+ttesting     <- Bank[-muestra, ]
+
+```
+
+
+```{r}
+modelo       <- train.rpart(y ~ .,data = taprendizaje)
+prediccion   <- predict(modelo, ttesting)
+mc           <- confusion.matrix(ttesting, prediccion)
+# Por defecto con probabilidad = 0.5 da los siguientes resultados
+general.indexes(mc = mc)
+```
+
+
+```{r}
+prediccion <- predict(modelo, ttesting, type = "prob") # Para que me retorne la probabilidad
+Clase      <- ttesting$y
+head(Clase)
+```
+
+
+```{r}
+Clase <- ttesting$y
+Score      <- prediccion$prediction[,"yes"]
+for(Corte in seq(1, 0, by = -0.05)) {
+    Prediccion <- ifelse(Score >= Corte, "yes", "no")
+    MC         <- table(Clase, Pred = factor(Prediccion, levels = c("no", "yes")))
+    cat("\nCorte usado para la Probabilidad = ")
+    cat(Corte)
+    cat("\n")
+    print(general.indexes(mc = MC))
+    cat("\n========================================")
+}
+```
+**se utilizara la probabilidad de corte con 0.4**
+
+```{r}
+numero.filas                <- nrow(Bank)
+cantidad.validacion.cruzada <- 3 
+cantidad.grupos <- 5
+```
+
+
+```{r}
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.svm.total <- 0
+pg.knn.total <- 0
+pg.bayes.total <- 0
+pg.arbol.total <- 0
+pg.bosque.total <- 0    
+pg.potenciacion.total <- 0
+pg.red.total <- 0    
+pg.xgboost.total <- 0  
+pg.glm.total <- 0   
+pg.glmnet.total <- 0 
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+lista.pg.svm <- list()
+lista.pg.knn <- list()
+lista.pg.bayes <- list()
+lista.pg.arbol <- list()
+lista.pg.bosque <- list()   
+lista.pg.potenciacion <- list()
+lista.pg.red <- list()   
+lista.pg.xgboost <- list()
+lista.pg.glm <- list() 
+lista.pg.glmnet <- list()
+
+# Acumuladores del NO para el gráfico de barras
+no.svm.total <- 0
+no.knn.total <- 0
+no.bayes.total <- 0
+no.arbol.total <- 0
+no.bosque.total <- 0    
+no.potenciacion.total <- 0
+no.red.total <- 0    
+no.xgboost.total <- 0  
+no.glm.total <- 0   
+no.glmnet.total <- 0 
+# Listas para guardar lel No en cada experimento para el gráfico de líneas
+lista.no.svm <- list()
+lista.no.knn <- list()
+lista.no.bayes <- list()
+lista.no.arbol <- list()
+lista.no.bosque <- list()   
+lista.no.potenciacion <- list()
+lista.no.red <- list()   
+lista.no.xgboost <- list()
+lista.no.glm <- list() 
+lista.no.glmnet <- list()
+
+# Acumuladores del SI para el gráfico de barras
+si.svm.total <- 0
+si.knn.total <- 0
+si.bayes.total <- 0
+si.arbol.total <- 0
+si.bosque.total <- 0    
+si.potenciacion.total <- 0
+si.red.total <- 0    
+si.xgboost.total <- 0  
+si.glm.total <- 0   
+si.glmnet.total <- 0 
+# Listas para guardar del SI en cada experimento para el gráfico de líneas
+lista.si.svm <- list()
+lista.si.knn <- list()
+lista.si.bayes <- list()
+lista.si.arbol <- list()
+lista.si.bosque <- list()   
+lista.si.potenciacion <- list()
+lista.si.red <- list()   
+lista.si.xgboost <- list()
+lista.si.glm <- list() 
+lista.si.glmnet <- list()
+
+```
+
+```{r}
+# Validación cruzada 3 veces
+for (i in 1:cantidad.validacion.cruzada) {
+  grupos <- createFolds(1:numero.filas, cantidad.grupos) # Crea los 10 grupos
+  # Acumuladores de la Precisión Global para el gráfico de barras
+  pg.svm <- 0
+  pg.knn <- 0
+  pg.bayes <- 0
+  pg.arbol <- 0
+  pg.bosque <- 0    
+  pg.potenciacion <- 0
+  pg.red <- 0    
+  pg.xgboost <- 0  
+  pg.glm <- 0   
+  pg.glmnet <- 0   
+  
+  # Acumuladores del NO para el gráfico de barras
+  no.svm <- 0
+  no.knn <- 0
+  no.bayes <- 0
+  no.arbol <- 0
+  no.bosque <- 0    
+  no.potenciacion <- 0
+  no.red <- 0    
+  no.xgboost <- 0  
+  no.glm <- 0   
+  no.glmnet <- 0 
+
+  # Acumuladores del SI para el gráfico de barras
+  si.svm <- 0
+  si.knn <- 0
+  si.bayes <- 0
+  si.arbol <- 0
+  si.bosque <- 0    
+  si.potenciacion <- 0
+  si.red <- 0    
+  si.xgboost <- 0  
+  si.glm <- 0   
+  si.glmnet <- 0 
+
+ # Este ciclo es el que hace validación cruzada con 5 grupos
+  for (k in 1:cantidad.grupos) {
+    muestra   <- grupos[[k]] # Por ser una lista requiere de doble paréntesis
+    ttesting  <- Bank[muestra, ]
+    ttraining <- Bank[-muestra, ]
+    
+    modelo          <- train.svm(y ~ ., data = ttraining, kernel = "linear", probability = TRUE)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.svm <- pg.svm + general$overall.accuracy
+    no.svm <- no.svm + general$category.accuracy[1]
+    si.svm <- si.svm + general$category.accuracy[2]
+    
+    modelo          <- train.knn(y ~ ., data = ttraining, kmax = 30,kernel = "triweight")
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.knn <- pg.knn + general$overall.accuracy
+    no.knn <- no.knn + general$category.accuracy[1]
+    si.knn <- si.knn + general$category.accuracy[2]
+    
+    
+    modelo          <- train.bayes(y ~ ., data = ttraining)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.bayes <- pg.bayes + general$overall.accuracy
+    no.bayes <- no.bayes + general$category.accuracy[1]
+    si.bayes <- si.bayes + general$category.accuracy[2]
+    
+    modelo          <- train.rpart(y ~ ., data = ttraining)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.arbol <- pg.arbol + general$overall.accuracy
+    no.arbol <- no.arbol + general$category.accuracy[1]
+    si.arbol <- si.arbol + general$category.accuracy[2]
+    
+    modelo          <- train.randomForest(y ~ ., data = ttraining)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.bosque <- pg.bosque + general$overall.accuracy
+    no.bosque <- no.bosque + general$category.accuracy[1]
+    si.bosque <- si.bosque + general$category.accuracy[2]
+    
+    modelo          <- train.ada(y ~ ., data = ttraining, iter = 10, nu = 1, type = "discrete")
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.potenciacion <- pg.potenciacion + general$overall.accuracy
+    no.potenciacion <- no.potenciacion + general$category.accuracy[1]
+    si.potenciacion <- si.potenciacion + general$category.accuracy[2]
+    
+    modelo          <- train.nnet(y ~ ., data = ttraining, size = 10, MaxNWts = 5000, 
+                                  rang = 0.01, decay = 5e-4, maxit = 45, trace = TRUE)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.red <- pg.red + general$overall.accuracy
+    no.red <- no.red + general$category.accuracy[1]
+    si.red <- si.red + general$category.accuracy[2]
+    
+    modelo          <- train.xgboost(y ~ ., data = ttraining, nrounds = 30, maximize = F, eval_metric = "error", verbose = 0)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.xgboost <- pg.xgboost + general$overall.accuracy
+    no.xgboost <- no.xgboost + general$category.accuracy[1]
+    si.xgboost <- si.xgboost + general$category.accuracy[2]
+    
+    modelo          <- train.glm(y ~ ., data = ttraining)
+    prediccion.prod <- predict(modelo, ttesting, type = "prob")
+    Score      <- prediccion.prod$prediction[,"yes"]
+    corte <- 0.4
+    Prediccion <- ifelse(Score > Corte, "yes", "no")
+    mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))
+    general <- general.indexes(mc = mc)
+    pg.glm <- pg.glm + general$overall.accuracy
+    no.glm <- no.glm + general$category.accuracy[1]
+    si.glm <- si.glm + general$category.accuracy[2]
+    
+
+  }
+  pg.svm <- pg.svm/cantidad.grupos
+  pg.knn <- pg.knn/cantidad.grupos
+  pg.bayes <- pg.bayes/cantidad.grupos
+  pg.arbol <- pg.arbol/cantidad.grupos
+  pg.bosque <- pg.bosque/cantidad.grupos
+  pg.potenciacion <- pg.potenciacion/cantidad.grupos
+  pg.red <- pg.red/cantidad.grupos
+  pg.xgboost <- pg.xgboost/cantidad.grupos
+  pg.glm <- pg.glm/cantidad.grupos
+  pg.glmnet <- pg.glmnet/cantidad.grupos  
+
+  pg.svm.total <- pg.svm.total + pg.svm
+  pg.knn.total <- pg.knn.total + pg.knn
+  pg.bayes.total <- pg.bayes.total + pg.bayes
+  pg.arbol.total <- pg.arbol.total + pg.arbol
+  pg.bosque.total <- pg.bosque.total + pg.bosque
+  pg.potenciacion.total <- pg.potenciacion.total + pg.potenciacion
+  pg.red.total <- pg.red.total + pg.red
+  pg.xgboost.total <- pg.xgboost.total + pg.xgboost
+  pg.glm.total <- pg.glm.total + pg.glm
+  pg.glmnet.total <- pg.glmnet.total + pg.glmnet   
+  
+  lista.pg.svm <- append(lista.pg.svm,pg.svm)
+  lista.pg.knn <- append(lista.pg.knn,pg.knn)
+  lista.pg.bayes <- append(lista.pg.bayes,pg.bayes)
+  lista.pg.arbol <- append(lista.pg.arbol,pg.arbol)
+  lista.pg.bosque <- append(lista.pg.bosque,pg.bosque)
+  lista.pg.potenciacion <- append(lista.pg.potenciacion,pg.potenciacion)
+  lista.pg.red <- append(lista.pg.red,pg.red)
+  lista.pg.xgboost <- append(lista.pg.xgboost,pg.xgboost)
+  lista.pg.glm <- append(lista.pg.glm,pg.glm)
+  lista.pg.glmnet <-append(lista.pg.glmnet,pg.glmnet) 
+
+  no.svm <- no.svm/cantidad.grupos
+  no.knn <- no.knn/cantidad.grupos
+  no.bayes <- no.bayes/cantidad.grupos
+  no.arbol <- no.arbol/cantidad.grupos
+  no.bosque <- no.bosque/cantidad.grupos
+  no.potenciacion <- no.potenciacion/cantidad.grupos
+  no.red <- no.red/cantidad.grupos
+  no.xgboost <- no.xgboost/cantidad.grupos
+  no.glm <- no.glm/cantidad.grupos
+  no.glmnet <- no.glmnet/cantidad.grupos  
+  
+  si.svm <- si.svm/cantidad.grupos
+  si.knn <- si.knn/cantidad.grupos
+  si.bayes <- si.bayes/cantidad.grupos
+  si.arbol <- si.arbol/cantidad.grupos
+  si.bosque <- si.bosque/cantidad.grupos
+  si.potenciacion <- si.potenciacion/cantidad.grupos
+  si.red <- si.red/cantidad.grupos
+  si.xgboost <- si.xgboost/cantidad.grupos
+  si.glm <- si.glm/cantidad.grupos
+  si.glmnet <- si.glmnet/cantidad.grupos  
+
+  no.svm.total <- no.svm.total + no.svm
+  no.knn.total <- no.knn.total + no.knn
+  no.bayes.total <- no.bayes.total + no.bayes
+  no.arbol.total <- no.arbol.total + no.arbol
+  no.bosque.total <- no.bosque.total + no.bosque
+  no.potenciacion.total <- no.potenciacion.total + no.potenciacion
+  no.red.total <- no.red.total + no.red
+  no.xgboost.total <- no.xgboost.total + no.xgboost
+  no.glm.total <- no.glm.total + no.glm
+  no.glmnet.total <- no.glmnet.total + no.glmnet   
+  
+  si.svm.total <- si.svm.total + si.svm
+  si.knn.total <- si.knn.total + si.knn
+  si.bayes.total <- si.bayes.total + si.bayes
+  si.arbol.total <- si.arbol.total + si.arbol
+  si.bosque.total <- si.bosque.total + si.bosque
+  si.potenciacion.total <- si.potenciacion.total + si.potenciacion
+  si.red.total <- si.red.total + si.red
+  si.xgboost.total <- si.xgboost.total + si.xgboost
+  si.glm.total <- si.glm.total + si.glm
+  si.glmnet.total <- si.glmnet.total + si.glmnet  
+  
+  lista.no.svm <- append(lista.no.svm,no.svm)
+  lista.no.knn <- append(lista.no.knn,no.knn)
+  lista.no.bayes <- append(lista.no.bayes,no.bayes)
+  lista.no.arbol <- append(lista.no.arbol,no.arbol)
+  lista.no.bosque <- append(lista.no.bosque,no.bosque)
+  lista.no.potenciacion <- append(lista.no.potenciacion,no.potenciacion)
+  lista.no.red <- append(lista.no.red,no.red)
+  lista.no.xgboost <- append(lista.no.xgboost,no.xgboost)
+  lista.no.glm <- append(lista.no.glm,no.glm)
+  lista.no.glmnet <-append(lista.no.glmnet,no.glmnet) 
+  
+  lista.si.svm <- append(lista.si.svm,si.svm)
+  lista.si.knn <- append(lista.si.knn,si.knn)
+  lista.si.bayes <- append(lista.si.bayes,si.bayes)
+  lista.si.arbol <- append(lista.si.arbol,si.arbol)
+  lista.si.bosque <- append(lista.si.bosque,si.bosque)
+  lista.si.potenciacion <- append(lista.si.potenciacion,si.potenciacion)
+  lista.si.red <- append(lista.si.red,si.red)
+  lista.si.xgboost <- append(lista.si.xgboost,si.xgboost)
+  lista.si.glm <- append(lista.si.glm,si.glm)
+  lista.si.glmnet <-append(lista.si.glmnet,si.glmnet) 
+}
+pg.svm.total <- pg.svm.total/cantidad.validacion.cruzada
+pg.knn.total <- pg.knn.total/cantidad.validacion.cruzada
+pg.bayes.total <- pg.bayes.total/cantidad.validacion.cruzada
+pg.arbol.total <- pg.arbol.total/cantidad.validacion.cruzada
+pg.bosque.total <- pg.bosque.total/cantidad.validacion.cruzada
+pg.potenciacion.total <- pg.potenciacion.total/cantidad.validacion.cruzada
+pg.red.total <- pg.red.total/cantidad.validacion.cruzada
+pg.xgboost.total <- pg.xgboost.total/cantidad.validacion.cruzada
+pg.glm.total <- pg.glm.total/cantidad.validacion.cruzada
+pg.glmnet.total <- pg.glmnet.total/cantidad.validacion.cruzada
+
+no.svm.total <- no.svm.total/cantidad.validacion.cruzada
+no.knn.total <- no.knn.total/cantidad.validacion.cruzada
+no.bayes.total <- no.bayes.total/cantidad.validacion.cruzada
+no.arbol.total <- no.arbol.total/cantidad.validacion.cruzada
+no.bosque.total <- no.bosque.total/cantidad.validacion.cruzada
+no.potenciacion.total <- no.potenciacion.total/cantidad.validacion.cruzada
+no.red.total <- no.red.total/cantidad.validacion.cruzada
+no.xgboost.total <- no.xgboost.total/cantidad.validacion.cruzada
+no.glm.total <- no.glm.total/cantidad.validacion.cruzada
+no.glmnet.total <- no.glmnet.total/cantidad.validacion.cruzada
+
+
+si.svm.total <- si.svm.total/cantidad.validacion.cruzada
+si.knn.total <- si.knn.total/cantidad.validacion.cruzada
+si.bayes.total <- si.bayes.total/cantidad.validacion.cruzada
+si.arbol.total <- si.arbol.total/cantidad.validacion.cruzada
+si.bosque.total <- si.bosque.total/cantidad.validacion.cruzada
+si.potenciacion.total <- si.potenciacion.total/cantidad.validacion.cruzada
+si.red.total <- si.red.total/cantidad.validacion.cruzada
+si.xgboost.total <- si.xgboost.total/cantidad.validacion.cruzada
+si.glm.total <- si.glm.total/cantidad.validacion.cruzada
+si.glmnet.total <- si.glmnet.total/cantidad.validacion.cruzada
+```
+
+```{r}
+# Lista de precisiones globales para el gráfico de barras
+lista.pg <- list(
+  SVM = pg.svm.total, 
+  KNN = pg.knn.total,
+  BAYES = pg.bayes.total,
+  ARBOL = pg.arbol.total,
+  BOSQUES = pg.bosque.total,
+  POTENCIACIÓN = pg.potenciacion.total,  
+  RED = pg.red.total,
+  XGBOOSTING = pg.xgboost.total,
+  GLM = pg.glm.total,
+  GLMNET = pg.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.pg$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.svm,
+                        lista.pg.knn,
+                        lista.pg.bayes,
+                        lista.pg.arbol,
+                        lista.pg.bosque,
+                        lista.pg.potenciacion,
+                        lista.pg.red,
+                        lista.pg.xgboost,
+                        lista.pg.glm,
+                        lista.pg.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(precision)), vjust = -0.5, size = 4) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# Lista del NO para el gráfico de barras
+lista.no <- list(
+  SVM = no.svm.total, 
+  KNN = no.knn.total,
+  BAYES = no.bayes.total,
+  ARBOL = no.arbol.total,
+  BOSQUES = no.bosque.total,
+  POTENCIACIÓN = no.potenciacion.total,  
+  RED = no.red.total,
+  XGBOOSTING = no.xgboost.total,
+  GLM = no.glm.total,
+  GLMNET = no.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.no$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(lista.no.svm,
+                        lista.no.knn,
+                        lista.no.bayes,
+                        lista.no.arbol,
+                        lista.no.bosque,
+                        lista.no.potenciacion,
+                        lista.no.red,
+                        lista.no.xgboost,
+                        lista.no.glm,
+                        lista.no.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(no)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del SI para el gráfico de barras
+lista.si <- list(
+  SVM = si.svm.total, 
+  KNN = si.knn.total,
+  BAYES = si.bayes.total,
+  ARBOL = si.arbol.total,
+  BOSQUES = si.bosque.total,
+  POTENCIACIÓN = si.potenciacion.total,  
+  RED = si.red.total,
+  XGBOOSTING = si.xgboost.total,
+  GLM = si.glm.total,
+  GLMNET = si.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.si$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.si <- cbind(lista.si.svm,
+                        lista.si.knn,
+                        lista.si.bayes,
+                        lista.si.arbol,
+                        lista.si.bosque,
+                        lista.si.potenciacion,
+                        lista.si.red,
+                        lista.si.xgboost,
+                        lista.si.glm,
+                        lista.si.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SI")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(si)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SI",
+       x = "Método",
+       y = "Detección del SI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**el metodo glmnet genera un error en la cantidad de interacciones adjunto el codigo realizado** 
+    **modelo          <- train.glmnet(y ~ ., data = ttraining, standardize = TRUE)**
+    **prediccion.prod <- predict(modelo, ttesting, type = "prob")**
+   **Score      <- prediccion.prod$prediction[,"yes"]**
+   **corte <- 0.3**
+    **Prediccion <- ifelse(Score > Corte, "yes", "no")**
+    **mc <- table(ttesting$y, Pred = factor(Prediccion, levels = c("no", "yes")))**
+    **general <- general.indexes(mc = mc)**
+    **pg.glmnet <- pg.glmnet + general$overall.accuracy**
+    **no.glmnet <- no.glmnet + general$category.accuracy[1]**
+    **si.glmnet <- si.glmnet + general$category.accuracy[2]**
+
+# Ejercicio 5 
+
+## A 
+**se adjunta la imagen**
+
+## B 
+
+```{r}
+Clase <- c(1,0,0,1,0,0,0,0,0,1)
+Score <- c(0.68,0.16,0.85,0.21,0.58,0.66,0.80,0.29,0.30,0.51)
+
+# Graficamos ROC con funciones de paquete traineR
+ROC.plot(Score, Clase)
+
+# Graficamos puntos con algoritmo
+i <- 1  # Contador
+FP_r <- -1  # Para que entre al condicional en la primera iteración
+TP_r <- -1  # Para que entre al condicional en la primera iteración
+
+for(Umbral in seq(0, 1, by = 0.1)) {
+  
+  Prediccion <- ifelse(Score >= Umbral, 1, 0)
+  
+  MC <- table(Clase, Pred = factor(Prediccion, levels = c(0, 1)))
+  
+  # Condicional para no imprimir puntos repetidos
+  if(FP_r != MC[1, 2] / sum(MC[1, ]) | TP_r != MC[2, 2] / sum(MC[2, ])) {
+    
+    FP_r <- MC[1, 2] / sum(MC[1, ])  # Tasa de Falsos Positivos
+    TP_r <- MC[2, 2] / sum(MC[2, ])  # Tasa de Verdaderos Positivos
+    
+    # Graficamos punto
+    points(FP_r, TP_r, col = "blue")
+    FP_rt <- round(FP_r,2)
+    TP_rt <- round(TP_r,2)
+    texto <- paste("(",FP_rt)
+    texto <- paste(texto,",")
+    texto <- paste(texto,TP_rt)
+    texto <- paste(texto,")")
+    text(FP_r + 0.02, TP_r - 0.02,texto)
+    text(FP_r, TP_r + 0.02,Umbral)
+
+        # Imprimimos resultados
+    cat("Punto i = ", i, "\n") 
+    cat("Umbral = p = ", Umbral, "\n")
+    cat("MC = \n")
+    print(MC)
+    cat("Tasa FP = ", round(FP_r, 2), "\n")
+    cat("Tasa TP = ", round(TP_r, 2), "\n") 
+    cat("\n") 
+    
+    i <- i + 1  # Aumentamos contador
+ }
+}
+```
+# Ejercicio 6
+
+## A
+
+```{r}
+spotify <- read.csv("Datos/spotify_tracks_dataset_v2.csv",sep = ",",header = T, stringsAsFactors = T )
+```
+
+
+```{r}
+##realizar las variables de numericas a categoricas 
+spotify$mode <- as.factor(spotify$mode)
+spotify$time_signature <- as.factor(spotify$time_signature)
+```
+
+```{r}
+spotify_c <- spotify %>%  select (-"track_name")
+## Elimine las variables seleccionadas por que contiene nombres unicos que no afectaran con la prediccion de variables
+## track_genre me afecto en bosques aleatorios que contaba con mas de 53 categorias
+```
+
+```{r}
+spotify_c <- spotify %>%  select (-"track_id",-"track_name",-"album_name",-"artists",-"track_genre")
+## Elimine las variables seleccionadas por que contiene nombres unicos que no afectaran con la prediccion de variables
+## track_genre me afecto en bosques aleatorios que contaba con mas de 53 categorias
+```
+
+## B
+
+```{r}
+RE <- function(Pred,Real) {
+  ss<-sum(abs(Real-Pred))/sum(abs(Real))
+  return(ss)
+}
+
+# NumPred es el número total de predictores por eso se resta 1 (que es realidad sumar 1)
+RSE<-function(Pred,Real,NumPred) {
+  N<-length(Real)-NumPred-1  # <- length(Real)-(NumPred+1)
+  ss<-sqrt((1/N)*RSS(Pred,Real))
+  return(ss)
+}
+
+RSS <- function(Pred,Real) {
+  ss <- sum((Real-Pred)^2)
+  return(ss)
+}
+
+MSE <- function(Pred,Real) {
+  N<-length(Real)
+  ss<-(1/N)*RSS(Pred,Real)
+  return(ss)
+}
+
+RMSE <- function(Pred,Real) {
+  ss<-sqrt(MSE(Pred,Real))
+  return(ss)
+}
+```
+
+```{r}
+# Funciones para desplegar precisión
+indices.precision <- function(prediccion, real,cantidad.variables.predictoras) {
+  return(list(raiz.error.cuadratico = RMSE(prediccion,real),
+              error.estandar.residuos = RSE(prediccion,real,cantidad.variables.predictoras),
+              error.absoluto.medio = MAE(prediccion,real),
+              error.relativo = RE(prediccion,real),
+              correlacion = as.numeric(cor(prediccion,real))))
+}
+```
+
+```{r}
+numero.filas          <- nrow(spotify_c)
+cantidad.validacion.cruzada <- 3   
+cantidad.grupos             <- 5
+```
+
+```{r}
+# Acumuladores del error
+error.svm.total <- 0
+error.knn.total <- 0
+error.bayes.total <- 0
+error.arbol.total <- 0
+error.bosques.total <- 0
+error.nnet.total <- 0
+error.xgboosting.total <- 0
+error.lm.total <- 0
+error.lasso.total <- 0
+error.ridge.total <- 0  
+
+# Listas para guardar los errores en cada experimento para el gráfico de líneas
+lista.error.svm    <- list()
+lista.error.knn    <- list()
+lista.error.bayes <- list()
+lista.error.arbol <- list()
+lista.error.bosques   <- list()
+lista.error.nnet    <- list()
+lista.error.xgboosting <- list()
+lista.error.lm <- list()
+lista.error.lasso <- list()
+lista.error.ridge <- list()
+
+for(i in 1:cantidad.validacion.cruzada) {
+  # Acumuladores del error
+  error.svm <- 0
+  error.knn <- 0
+  error.bayes <- 0
+  error.arbol <- 0
+  error.bosques <- 0
+  error.nnet <- 0
+  error.xgboosting <- 0
+  error.lm <- 0
+  error.lasso <- 0
+  error.ridge <- 0  
+  grupos <- createFolds(1:numero.filas, cantidad.grupos)  
+  
+  # grupos (Folds)
+  for(k in 1:cantidad.grupos) {  
+    muestra       <- grupos[[k]]  # Por ser una lista requiere de doble paréntesis
+    ttesting      <- spotify_c[muestra, ]
+    taprendizaje  <- spotify_c[-muestra, ]
+
+    modelo      <- train.svm(popularity~., data = taprendizaje, kernel = "radial")
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.svm   <- error.svm + errores$raiz.error.cuadratico
+
+    modelo      <- train.knn(popularity~., data = taprendizaje, kmax = 37)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.knn   <- error.knn + errores$raiz.error.cuadratico
+  
+    modelo      <- train.bayes(popularity~., data = taprendizaje)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.bayes <- error.bayes + errores$raiz.error.cuadratico  
+  
+    modelo      <- train.rpart(popularity~., data = taprendizaje)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.arbol <- error.arbol + errores$raiz.error.cuadratico  
+  
+    modelo      <- train.randomForest(popularity~., data = taprendizaje)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.bosques <- error.bosques + errores$raiz.error.cuadratico  
+  
+    modelo     <- train.nnet(popularity~., data = taprendizaje, size = 100, MaxNWts = 5000, 
+                                rang = 0.01, decay = 5e-4, maxit = 45, trace = TRUE)
+    prediccion <- predict(modelo, ttesting)
+    errores    <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.nnet <- error.nnet + errores$raiz.error.cuadratico   
+ 
+    modelo      <- train.xgboost(popularity~., data = taprendizaje, nrounds = 30, 
+                                 maximize = F , eval_metric = "error", verbose = 0)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.xgboosting <- error.xgboosting + errores$raiz.error.cuadratico 
+  
+    modelo <- lm(popularity~., data = taprendizaje)
+    prediccion <- predict(modelo, ttesting)
+    errores <- indices.precision(prediccion,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.lm <- error.lm + errores$raiz.error.cuadratico
+
+    modelo     <- train.glmnet(popularity~.,data = taprendizaje, alpha = 1, family = "gaussian")
+    prediccion <- predict(modelo, ttesting)
+    errores    <- indices.precision(prediccion$prediction, ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.lasso <- error.lasso + errores$raiz.error.cuadratico
+  
+    modelo     <- train.glmnet(popularity~.,data = taprendizaje, alpha = 0, family = "gaussian") 
+    prediccion <- predict(modelo, ttesting)
+    errores    <- indices.precision(prediccion$prediction, ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.ridge <- error.ridge + errores$raiz.error.cuadratico
+  }
+  error.svm <- error.svm/cantidad.grupos
+  error.knn <- error.knn/cantidad.grupos
+  error.bayes <- error.bayes/cantidad.grupos
+  error.arbol <- error.arbol/cantidad.grupos
+  error.bosques <- error.bosques/cantidad.grupos
+  error.nnet <- error.nnet/cantidad.grupos
+  error.xgboosting <- error.xgboosting/cantidad.grupos
+  error.lm <- error.lm/cantidad.grupos
+  error.lasso <- error.lasso/cantidad.grupos
+  error.ridge <- error.ridge/cantidad.grupos
+  
+  error.svm.total <- error.svm.total + error.svm
+  error.knn.total <- error.knn.total + error.knn
+  error.bayes.total <- error.bayes.total + error.bayes
+  error.arbol.total <- error.arbol.total + error.arbol
+  error.bosques.total <- error.bosques.total + error.bosques
+  error.nnet.total <- error.nnet.total + error.nnet
+  error.xgboosting.total <- error.xgboosting.total + error.xgboosting
+  error.lm.total <- error.lm.total + error.lm
+  error.lasso.total <- error.lasso.total + error.lasso
+  error.ridge.total <- error.ridge.total + error.ridge  
+  
+  lista.error.svm <- append(lista.error.svm,error.svm)  
+  lista.error.knn <- append(lista.error.knn,error.knn) 
+  lista.error.bayes <- append(lista.error.bayes,error.bayes) 
+  lista.error.arbol <- append(lista.error.arbol,error.arbol) 
+  lista.error.bosques <- append(lista.error.bosques,error.bosques) 
+  lista.error.nnet <- append(lista.error.nnet,error.nnet) 
+  lista.error.xgboosting <- append(lista.error.xgboosting,error.xgboosting) 
+  lista.error.lm <- append(lista.error.lm,error.lm)
+  lista.error.lasso <- append(lista.error.lasso,error.lasso) 
+  lista.error.ridge <- append(lista.error.ridge,error.ridge) 
+}  
+error.svm.total <- error.svm.total/cantidad.validacion.cruzada
+error.knn.total <- error.knn.total/cantidad.validacion.cruzada
+error.bayes.total <- error.bayes.total/cantidad.validacion.cruzada
+error.arbol.total <- error.arbol.total/cantidad.validacion.cruzada
+error.bosques.total <- error.bosques.total/cantidad.validacion.cruzada
+error.nnet.total <- error.nnet.total/cantidad.validacion.cruzada
+error.xgboosting.total <- error.xgboosting.total/cantidad.validacion.cruzada
+error.lm.total <- error.lm.total/cantidad.validacion.cruzada
+error.lasso.total <- error.lasso.total/cantidad.validacion.cruzada
+error.ridge.total <- error.ridge.total/cantidad.validacion.cruzada
+```
+
+```{r}
+# Lista de errores para el gráfico de barras
+lista.error <- list(
+  SVM = error.svm, 
+  KNN = error.knn,
+  BAYES = error.bayes,
+  ARBOL = error.arbol,
+  BOSQUES = error.bosques,
+  NNET = error.nnet,
+  XGBOOSTING = error.xgboosting,
+  CLÁSICA = error.lm,
+  LASSO = error.lasso,
+  RIDGE = error.ridge
+)
+
+# Convierte la lista a un data frame
+df.error <- data.frame(
+  metodo = names(lista.error),
+  error = unlist(lista.error)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.error$metodo <- factor(df.error$metodo, levels = names(lista.error))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.error$metodo))
+
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.errores <- cbind(lista.error.svm,
+                        lista.error.knn,
+                        lista.error.bayes,
+                        lista.error.arbol,
+                        lista.error.bosques,
+                        lista.error.nnet,
+                        lista.error.xgboosting,
+                        lista.error.lm,
+                        lista.error.lasso,
+                        error.ridge)
+
+# Crea el gráfico de líneas
+matplot(matriz.errores, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Error",
+        main = "Gráfico de Líneas para Errores de SVM")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "NNET", "XGBOOSTING", "CLÁSICA", "LASSO", "RIDGE"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.error, aes(x = metodo, y = error, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(error,2)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Raíz del Error Cuadrático Medio",
+       x = "Método",
+       y = "Error") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+**Bosques es el mejor metodo con un valor de raiz del error cuadratico medio de 16.02**
+## C 
+
+```{r}
+# Acumuladores del error
+error.svm.total <- 0
+error.knn.total <- 0
+error.bayes.total <- 0
+error.arbol.total <- 0
+error.bosques.total <- 0
+error.nnet.total <- 0
+error.xgboosting.total <- 0
+error.lm.total <- 0
+error.lasso.total <- 0
+error.ridge.total <- 0  
+
+# Listas para guardar los errores en cada experimento para el gráfico de líneas
+lista.error.svm    <- list()
+lista.error.knn    <- list()
+lista.error.bayes <- list()
+lista.error.arbol <- list()
+lista.error.bosques   <- list()
+lista.error.nnet    <- list()
+lista.error.xgboosting <- list()
+lista.error.lm <- list()
+lista.error.lasso <- list()
+lista.error.ridge <- list()
+
+for(i in 1:cantidad.validacion.cruzada) {
+  # Acumuladores del error
+  error.svm <- 0
+  error.knn <- 0
+  error.bayes <- 0
+  error.arbol <- 0
+  error.bosques <- 0
+  error.nnet <- 0
+  error.xgboosting <- 0
+  error.lm <- 0
+  error.lasso <- 0
+  error.ridge <- 0  
+  grupos <- createFolds(1:numero.filas, cantidad.grupos)  
+  
+  # grupos (Folds)
+  for(k in 1:cantidad.grupos) {  
+    muestra       <- grupos[[k]]  # Por ser una lista requiere de doble paréntesis
+    ttesting      <- spotify_c[muestra, ]
+    taprendizaje  <- spotify_c[-muestra, ]
+
+    modelo      <- train.svm(popularity~., data = taprendizaje, kernel = "radial")
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.svm   <- error.svm + errores$correlacion
+  
+
+    modelo      <- train.knn(popularity~., data = taprendizaje, kmax = 37)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.knn   <- error.knn + errores$correlacion
+  
+    modelo      <- train.bayes(popularity~., data = taprendizaje)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.bayes <- error.bayes + errores$correlacion 
+  
+    modelo      <- train.rpart(popularity~., data = taprendizaje)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.arbol <- error.arbol + errores$correlacion 
+  
+    modelo      <- train.randomForest(popularity~., data = taprendizaje)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.bosques <- error.bosques + errores$correlacion 
+  
+    modelo     <- train.nnet(popularity~., data = taprendizaje, size = 100, MaxNWts = 5000, 
+                                rang = 0.01, decay = 5e-4, maxit = 45, trace = TRUE)
+    prediccion <- predict(modelo, ttesting)
+    errores    <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.nnet <- error.nnet + errores$correlacion   
+ 
+    modelo      <- train.xgboost(popularity~., data = taprendizaje, nrounds = 30, 
+                                 maximize = F , eval_metric = "error", verbose = 0)
+    prediccion  <- predict(modelo, ttesting)
+    errores     <- indices.precision(prediccion$prediction,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.xgboosting <- error.xgboosting + errores$correlacion
+  
+    modelo <- lm(popularity~., data = taprendizaje)
+    prediccion <- predict(modelo, ttesting)
+    errores <- indices.precision(prediccion,ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.lm <- error.lm + errores$correlacion
+
+    modelo     <- train.glmnet(popularity~.,data = taprendizaje, alpha = 1, family = "gaussian")
+    prediccion <- predict(modelo, ttesting)
+    errores    <- indices.precision(prediccion$prediction, ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.lasso <- error.lasso + errores$correlacion
+  
+    modelo     <- train.glmnet(popularity~.,data = taprendizaje, alpha = 0, family = "gaussian") 
+    prediccion <- predict(modelo, ttesting)
+    errores    <- indices.precision(prediccion$prediction, ttesting$popularity,cantidad.variables.predictoras=(ncol(ttesting)-1))
+    error.ridge <- error.ridge + errores$correlacion
+  }
+  error.svm <- error.svm/cantidad.grupos
+  error.knn <- error.knn/cantidad.grupos
+  error.bayes <- error.bayes/cantidad.grupos
+  error.arbol <- error.arbol/cantidad.grupos
+  error.bosques <- error.bosques/cantidad.grupos
+  error.nnet <- error.nnet/cantidad.grupos
+  error.xgboosting <- error.xgboosting/cantidad.grupos
+  error.lm <- error.lm/cantidad.grupos
+  error.lasso <- error.lasso/cantidad.grupos
+  error.ridge <- error.ridge/cantidad.grupos
+  
+  error.svm.total <- error.svm.total + error.svm
+  error.knn.total <- error.knn.total + error.knn
+  error.bayes.total <- error.bayes.total + error.bayes
+  error.arbol.total <- error.arbol.total + error.arbol
+  error.bosques.total <- error.bosques.total + error.bosques
+  error.nnet.total <- error.nnet.total + error.nnet
+  error.xgboosting.total <- error.xgboosting.total + error.xgboosting
+  error.lm.total <- error.lm.total + error.lm
+  error.lasso.total <- error.lasso.total + error.lasso
+  error.ridge.total <- error.ridge.total + error.ridge  
+  
+  lista.error.svm <- append(lista.error.svm,error.svm)  
+  lista.error.knn <- append(lista.error.knn,error.knn) 
+  lista.error.bayes <- append(lista.error.bayes,error.bayes) 
+  lista.error.arbol <- append(lista.error.arbol,error.arbol) 
+  lista.error.bosques <- append(lista.error.bosques,error.bosques) 
+  lista.error.nnet <- append(lista.error.nnet,error.nnet) 
+  lista.error.xgboosting <- append(lista.error.xgboosting,error.xgboosting) 
+  lista.error.lm <- append(lista.error.lm,error.lm)
+  lista.error.lasso <- append(lista.error.lasso,error.lasso) 
+  lista.error.ridge <- append(lista.error.ridge,error.ridge) 
+}  
+error.svm.total <- error.svm.total/cantidad.validacion.cruzada
+error.knn.total <- error.knn.total/cantidad.validacion.cruzada
+error.bayes.total <- error.bayes.total/cantidad.validacion.cruzada
+error.arbol.total <- error.arbol.total/cantidad.validacion.cruzada
+error.bosques.total <- error.bosques.total/cantidad.validacion.cruzada
+error.nnet.total <- error.nnet.total/cantidad.validacion.cruzada
+error.xgboosting.total <- error.xgboosting.total/cantidad.validacion.cruzada
+error.lm.total <- error.lm.total/cantidad.validacion.cruzada
+error.lasso.total <- error.lasso.total/cantidad.validacion.cruzada
+error.ridge.total <- error.ridge.total/cantidad.validacion.cruzada
+```
+
+```{r}
+# Lista de errores para el gráfico de barras
+lista.error <- list(
+  SVM = error.svm, 
+  KNN = error.knn,
+  BAYES = error.bayes,
+  ARBOL = error.arbol,
+  BOSQUES = error.bosques,
+  NNET = error.nnet,
+  XGBOOSTING = error.xgboosting,
+  CLÁSICA = error.lm,
+  LASSO = error.lasso,
+  RIDGE = error.ridge
+)
+
+# Convierte la lista a un data frame
+df.error <- data.frame(
+  metodo = names(lista.error),
+  error = unlist(lista.error)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.error$metodo <- factor(df.error$metodo, levels = names(lista.error))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.error$metodo))
+
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.errores <- cbind(lista.error.svm,
+                        lista.error.knn,
+                        lista.error.bayes,
+                        lista.error.arbol,
+                        lista.error.bosques,
+                        lista.error.nnet,
+                        lista.error.xgboosting,
+                        lista.error.lm,
+                        lista.error.lasso,
+                        error.ridge)
+
+# Crea el gráfico de líneas
+matplot(matriz.errores, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Error",
+        main = "Gráfico de Líneas para Errores de CORRELACION")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "NNET", "XGBOOSTING", "CLÁSICA", "LASSO", "RIDGE"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.error, aes(x = metodo, y = error, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(error,2)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Correlacion",
+       x = "Método",
+       y = "Error") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
