@@ -1,0 +1,1904 @@
+---
+title: "Proyecto Final"
+author: "Alejandro H. / Rafael M."
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: yes
+    toc_float: yes
+    df_print: paged
+---
+
+# Librerías usadas
+
+En este documento se están usando las siguientes librerias: `rvest`, `stringr`, `tidyverse`, `dplyr`, `xml2`, `FactoMineR`, `factoextra`, `fastDummies`, `corrplot`, `cluster`, `fmsb`, `tidyr`, `tibble`, `traineR`, `caret`, `glmnet`, `rpart.plot`, `randomForest`, `xgboost`, `stringi`, `ggplot2`, `sf`, `leaflet`, `leaflet.extras`, `leaflet.providers`, `readxl`, `janitor`, `readr`, `osmdata`, `sf`, `RColorBrewer`, `htmltools`, `rworldmap`, `scales`, `purrr`, `ggcorrplot`
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(stringr)
+library(tidyverse)
+library(dplyr)
+library(xml2)
+library(FactoMineR)
+library(factoextra)
+library(fastDummies)
+library(corrplot)
+library(cluster)
+library(fmsb)
+library(tidyr)
+library(tibble)
+library(traineR)
+library(caret)
+library(glmnet)
+library(rpart.plot)
+library(randomForest)
+library(xgboost)
+library(stringi)
+library(ggplot2)
+library(sf)
+library(leaflet)
+library(leaflet.extras)
+library(leaflet.providers)
+library(readxl) #leer xls
+library(janitor) #limpieza de etiquetas
+library(readr) # leer rds
+library(osmdata) # datos de mapas
+library(sf) # objetos geométricos
+library(RColorBrewer) # Paletas de colores
+library(htmltools) # usar tabs de HTML para dar format
+library(knitr) # Manejo de strings
+library(scales) # formatos
+library(purrr) # aplicar mapeos de funciones
+library(rworldmap)
+library(ggcorrplot)
+
+```
+
+# Carga de los datos
+
+Se cargan los dataframes a utilizar desde archivos .csv
+
+-   **megabasesecundaria**: Base de datos con la información anual de los centros de educación secundaria
+-   **poblacion**: Base de datos con indicadores de desarrollos social y económico por distrito
+
+```{r}
+mega <- read.csv(file = "Datos/megabasesecundaria2017.csv", header = T, dec = ",", sep = ";")
+```
+
+```{r}
+mega
+str(mega)
+```
+
+**Leer los datos de la base de datos de indicadores por distrito**
+
+```{r}
+poblacion <- read.csv(file = "Datos/IDS_poblacion.csv", header = T, dec = ".", sep = ",")
+```
+
+```{r}
+poblacion
+```
+
+**Hacer agregación de las diferentes variables que componen las características de los colegios**
+
+```{r}
+# Se unifican las columnas del codigo de identificacion de PCD de poblacion para luego realizar join con la tabla de poblacion
+mega$pc <- ifelse(!is.na(mega$cddis00),mega$cddis00,ifelse(!is.na(mega$cddis01), mega$cddis01,ifelse(!is.na(mega$cddis02), mega$cddis02,ifelse(!is.na(mega$cddis03), mega$cddis03,ifelse(!is.na(mega$cddis04), mega$cddis04,ifelse(!is.na(mega$cddis05), mega$cddis05,ifelse(!is.na(mega$cddis06), mega$cddis06,ifelse(!is.na(mega$cddis07), mega$cddis07,ifelse(!is.na(mega$cddis08), mega$cddis08,ifelse(!is.na(mega$cddis09), mega$cddis09, ifelse(!is.na(mega$cddis10), mega$cddis10,ifelse(!is.na(mega$cddis11), mega$cddis11,  ifelse(!is.na(mega$cddis12), mega$cddis12,ifelse(!is.na(mega$cddis13), mega$cddis13,ifelse(!is.na(mega$cddis14), mega$cddis14, ifelse(!is.na(mega$cddis15), mega$cddis15,ifelse(!is.na(mega$cddis16), mega$cddis16,NA)))))))))))))))))
+```
+
+**Realizar limpieza de los datos en cuanto a formato con caracteres especiales**
+
+```{r}
+#Se elimina simbologia latina en ambas tablas
+poblacion_c <- data.frame(lapply(poblacion, function(x) {
+  if (is.character(x)) {
+    stri_trans_general(x, "Latin-ASCII")
+  } else {
+    x
+  }
+}), stringsAsFactors = FALSE)
+
+mega_a <- data.frame(lapply(mega, function(x) {
+  if (is.character(x)) {
+    stri_trans_general(x, "Latin-ASCII")
+  } else {
+    x
+  }
+}), stringsAsFactors = FALSE)
+
+```
+
+```{r}
+poblacion_c
+```
+
+```{r}
+mega_a
+```
+
+**Selección de las variables a usar para el modelado**
+
+```{r}
+# Se realiza la seleccion de las variables a utilizar del dataframe de megabasesecundaria
+mega_c <- mega_a %>% select(aab11,aab14,aat11,aat14,act_12,act_13,act_14,act_15,aeb11,aet11,agrde_11,agrde_12,agrde_13,agrde_14,agrde_15,	agrdeo_14,agrdeo_15,agrdep_11,agrdep_12,agrdep_13,agrdep_14,agrdep_15,agree_11,agree_12,agree_13,agree_14,agree_15,agreeo_14,agreeo_15,	agreep_11,agreep_12,agreep_13,agreep_14,agreep_15,agrfe_11,agrfe_12,agrfe_13,agrfe_14,agrfe_15,agrfeo_14,agrfeo_15,agrfep_11,agrfep_12,	agrfep_13,agrfep_14,agrfep_15,agroe_11,agroe_14,agroe_15,agroeo_14,agroeo_15,agroep_11,agroep_14,agroep_15,agrre_11,agrre_12,agrre_13,	agrre_14,agrre_15,agrreo_14,agrreo_15,agrrep_11,agrrep_12,agrrep_13,agrrep_14,agrrep_15,agrve_11,agrve_12,agrve_13,agrve_14,agrve_15,	agrveo_14,agrveo_15,agrvep_11,agrvep_12,agrvep_13,agrvep_14,agrvep_15,alb15,alb16,alt15,alt16,aprobt_12,aprobt_13,aprobt_14,aprobt_15,	bib14,bibb11,bibb14,bibb15,bibb16,bibt11,bibt14,bibt15,bibt16,cddis16,cdpr16,comb11,comb14,comb15,comb16,comt11,comt14,comt15,comt16,	desa_11,desa_12,desa_13,desa_14,desa_15,embt_11,embt_12,embt_13,embt_14,embt_15,expdef_11,expdef_12,expdef_13,expdef_14,expdef_15,	exptem_11,exptem_12,exptem_13,exptem_14,exptem_15,expto_11,expto_12,expto_13,expto_14,expto_15,gimb14,gimb15,gimb16,gimt14,gimt15,gimt16,indb11,indb14,indb15,indb16,indt11,indt14,indt15,indt16,infb11,infb14,infb15,infb16,inft11,inft14,inft15,inft16,	lavb11,lavb14,lavb15,lavb16,lavt11,lavt14,lavt15,lavt16,llave,mit_12,mit_13,mit_14,mit_15,mit_16,nst_12,nst_13,nst_14,nst_15,pizb11,pizt11,rama16,reprot_11,reprot_12,reprot_13,reprot_14,reprot_15,sal14,sal15,sal16,salb11,salb15,salb16,salt11,salt15,salt16,sanb11,sanb14,sanb15,sanb16,sant11,sant14,sant15,sant16,serv_int15,serv_int16,sit_11,sit_12,sit_13,sit_14,sit_15,sodb15,sodb16,sodt15,sodt16,talb_ai14,talb_ai15,talb_ai16,talb11,talt_ai14,talt_ai15,talt_ai16,talt11,tvb11,tvb14,tvb15,tvb16,tvt11,tvt14,tvt15,tvt16,vbb14,vbt14,X2,Y2,estt11,estb11,rama16,pc,nombre_ins) 
+```
+
+```{r}
+#Se convierten a numerico las variables "aat14" & "PCD"
+mega_c$aat14 <- as.integer(mega_c$aat14)
+poblacion_c$PCD <- as.integer(poblacion_c$PCD)
+```
+
+**Transformación de las variables en los diferentes indicadores a usar para el modelado**
+
+```{r}
+# Se realiza los calculos de las variables
+
+Base <- mega_c %>% mutate(matriculados = mit_12 + mit_13 + mit_14 + mit_15 + mit_16 ) %>% mutate(aprobados = aprobt_12 + aprobt_13 + aprobt_14 + aprobt_15) %>% mutate(aprobacion = ( aprobados / matriculados)*100 ) %>%  mutate(abandono = desa_11 + desa_12 + desa_13 + desa_14 + desa_15 ) %>% mutate(abandonos = ( abandono / matriculados)*100) %>%  mutate(casos_violencia = agree_12 + agree_13 + agree_14 + agree_15 + agreeo_14 + agreeo_15 + agreep_12 + agreep_13 + agreep_14 + agreep_15 + agrfe_12 + agrfe_13 + agrfe_14 + agrfe_15 + agrfeo_14 + agrfeo_15  + agrfep_12 + agrfep_13 + agrfep_14 + agrfep_15 + agroe_14 + agroe_15 + agroeo_14 + agroeo_15 + agroep_14 + agroep_15) %>% mutate(violencia_estudiantil = ( casos_violencia / matriculados)*100) %>%  mutate(expulsion = expdef_12 + expdef_13 + expdef_14 + expdef_15 + exptem_12 + exptem_13 + exptem_14 + exptem_15 + expto_12 + expto_13 + expto_14 + expto_15) %>%  mutate(expulsiones = ( expulsion / matriculados)*100) %>% mutate(Aulas_buenas = aab11 + aab14) %>%  mutate(Total_aulas = aat11 + aat14) %>% mutate(estudiantes_aulas =   matriculados / Total_aulas) %>%  mutate(p_aulas_buenas = (Aulas_buenas / Total_aulas)*100) %>% mutate(compu_buenas = ifelse(is.na(estt11),0,estt11))
+
+
+```
+
+```{r}
+
+# Se continua con los calculos de las variables
+Base <- Base %>% mutate(soda = ifelse(is.na(sodt16), 0, ifelse(sodt16 > 1, 1, sodt16))) %>% mutate(Biblioteca = ifelse(is.na(bibt16), 0, ifelse(bibt16 > 1, 1, bibt16))) %>% mutate(comedor = ifelse(is.na(comt16), 0, ifelse(comt16 > 1, 1, comt16))) %>% mutate(laboratorio = ifelse(is.na(inft16), 0, ifelse(inft16 > 1, 1, inft16))) %>% mutate(total_talleres = (talt_ai14 + talt_ai15 + talt_ai16) / (talt_ai14 + talt_ai15 + talt_ai16)) %>% mutate(Talleres = ifelse(is.na(total_talleres), 0, ifelse(total_talleres > 1, 1, total_talleres))) %>% mutate(Serviciom_total = (sal14 +  sal15 + sal16)  /  (sal14 +  sal15 + sal16)) %>% mutate(Servicio_medico = ifelse(is.na(Serviciom_total), 0, ifelse(Serviciom_total > 1, 1, Serviciom_total))) %>% mutate(ser_intenet = (serv_int15 + serv_int16) / (serv_int15 + serv_int16) ) %>% mutate(Internet = ifelse(is.na(ser_intenet), 0, ifelse(ser_intenet > 1, 1, ser_intenet))) %>%  mutate(gim_total = (gimt14 + gimt15 + gimt16) / (gimt14 + gimt15 + gimt16)) %>% mutate(gimnasio = ifelse(is.na(gim_total), 0, ifelse(gim_total > 1, 1, gim_total))) %>% mutate(horario = case_when(rama16 == 11 ~ 1,rama16 == 21 ~ 2,rama16 == 31 ~ 3,TRUE ~ 1 ))
+
+```
+
+```{r}
+# se selecciona las variables a utilizar
+df_base <- Base %>% select(X2,Y2,nombre_ins,cdpr16,cddis16,matriculados,aprobacion,abandonos,violencia_estudiantil,expulsiones,estudiantes_aulas,p_aulas_buenas,compu_buenas,soda,Biblioteca,comedor,laboratorio,Talleres,Servicio_medico,Internet,gimnasio,horario,pc)
+```
+
+```{r}
+na_count_valor <- sum(is.na(df_base$cdpr16))
+print(paste("Número de NA en la columna 'valor':", na_count_valor))
+```
+
+```{r}
+na_count_valor1 <- sum(is.na(df_base$cddis16))
+print(paste("Número de NA en la columna 'valor':", na_count_valor1))
+```
+
+Validar la variable aprobacion y ajustar a 100 para aquellos colegios que superan este valor:
+
+```{r}
+df_base$aprobacion[df_base$aprobacion > 100] <- 100
+```
+
+# Revision y ajuste de los valores NA
+
+Se realiza la revision de las observaciones que presentan NA se realiza agrupaciones por cantones para tomar los promedios y asignarlos.
+
+```{r}
+# Calcular las medias por cada grupo de 'pc'
+medias_por_grupo <- df_base %>%
+  group_by(pc) %>%
+  summarise(
+    matriculados_mean = mean(matriculados, na.rm = TRUE),
+    aprobacion_mean = mean(aprobacion, na.rm = TRUE),
+    abandonos_mean = mean(abandonos, na.rm = TRUE),
+    violencia_estudiantil_mean = mean(violencia_estudiantil, na.rm = TRUE),
+    expulsiones_mean = mean(expulsiones, na.rm = TRUE),
+    estudiantes_aulas_mean = mean(estudiantes_aulas, na.rm = TRUE),
+    p_aulas_buenas_mean = mean(p_aulas_buenas, na.rm = TRUE),
+    compu_buenas_mean = mean(compu_buenas, na.rm = TRUE)
+  )
+
+# Reemplazar los NA usando las medias por grupo
+df <- df_base %>%
+  left_join(medias_por_grupo, by = "pc") %>%
+  mutate(
+    matriculados = ifelse(is.na(matriculados), matriculados_mean, matriculados),
+    aprobacion = ifelse(is.na(aprobacion), aprobacion_mean, aprobacion),
+    abandonos = ifelse(is.na(abandonos), abandonos_mean, abandonos),
+    violencia_estudiantil = ifelse(is.na(violencia_estudiantil), violencia_estudiantil_mean, violencia_estudiantil),
+    expulsiones = ifelse(is.na(expulsiones), expulsiones_mean, expulsiones),
+    estudiantes_aulas = ifelse(is.na(estudiantes_aulas), estudiantes_aulas_mean, estudiantes_aulas),
+    p_aulas_buenas = ifelse(is.na(p_aulas_buenas), p_aulas_buenas_mean, p_aulas_buenas),
+    compu_buenas = ifelse(is.na(compu_buenas), compu_buenas_mean, compu_buenas)
+  ) %>%
+  select(-ends_with("_mean"))
+
+# Reemplazar cualquier NA restante con las medias globales
+df <- df %>%
+  mutate(
+    matriculados = ifelse(is.na(matriculados), mean(matriculados, na.rm = TRUE), matriculados),
+    aprobacion = ifelse(is.na(aprobacion), mean(aprobacion, na.rm = TRUE), aprobacion),
+    abandonos = ifelse(is.na(abandonos), mean(abandonos, na.rm = TRUE), abandonos),
+    violencia_estudiantil = ifelse(is.na(violencia_estudiantil), mean(violencia_estudiantil, na.rm = TRUE), violencia_estudiantil),
+    expulsiones = ifelse(is.na(expulsiones), mean(expulsiones, na.rm = TRUE), expulsiones),
+    estudiantes_aulas = ifelse(is.na(estudiantes_aulas), mean(estudiantes_aulas, na.rm = TRUE), estudiantes_aulas),
+    p_aulas_buenas = ifelse(is.na(p_aulas_buenas), mean(p_aulas_buenas, na.rm = TRUE), p_aulas_buenas),
+    compu_buenas = ifelse(is.na(compu_buenas), mean(compu_buenas, na.rm = TRUE), compu_buenas)
+  )
+
+```
+
+```{r}
+df_final <- na.omit(df)
+```
+
+```{r}
+datos <- df_final
+str(df_final)
+```
+
+# Agregar los índices de desarrollo social al dataframe principal
+
+Se unifican los dataframes por codigo de distrito
+
+```{r}
+
+data_final <- left_join(datos,poblacion_c,by = c("pc" = "PCD") )
+
+# Eliminar la columna 'Participacion.electoral'
+data_final$Participacion.electoral <- NULL
+
+#data_final$Participacion.Educacion <- NULL
+
+
+```
+
+```{r}
+data_final
+```
+
+**Establecer el umbral en el porcentaje de aprobación para determinar si un colegio presenta un porcentaje de aprobación bueno o malo y crear la variable binaria a predecir: "Calidad"**
+
+```{r}
+# Agregar la nueva columna 'aprobacion' basada en la columna 'aprobacion'
+data_final$calidad <- ifelse(data_final$aprobacion >= 65, "y", "n")
+#datos$pct_aprobacion <- NULL
+data_final$calidad <- as.factor(data_final$calidad)
+```
+
+**Seleccion de variables para realizar la exploracion de los Datos**
+
+```{r}
+# Se realiza la seleccion de variables para realizar la exploracion de los Datos 
+
+df_exp <- data_final %>%  select( "abandonos" ,"violencia_estudiantil", "expulsiones", "estudiantes_aulas", "p_aulas_buenas","compu_buenas" ,"soda",  "Biblioteca", "comedor", "laboratorio" , "Talleres", "Servicio_medico" , "Internet", "gimnasio","horario","Economica", "Salud",  "Seguridad", "aprobacion")
+                                
+```
+
+# Visualización de los datos y exploración estadística
+
+**Estadísticas descriptivas de la base de datos**
+
+```{r}
+summary(data_final)
+```
+
+```{r}
+
+# Definir la función para crear un histograma 
+crear_histograma <- function(data, variable, titulo, label_x, label_y = "Frecuencia") {
+  
+  # Crear el histograma con los parámetros proporcionados
+  ggplot(data, aes(x = .data[[variable]])) +  
+    geom_histogram(binwidth = 5, fill = "skyblue", color = "black", alpha = 0.7) +
+    labs(title = titulo,
+         x = label_x,
+         y = label_y) +
+    theme_minimal(base_size = 15) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 12),  
+      axis.title.x = element_text(margin = ggplot2::margin(t = 10)),
+      axis.title.y = element_text(margin = ggplot2::margin(r = 10))
+    ) +
+    geom_vline(aes(xintercept = mean(.data[[variable]], na.rm = TRUE)), 
+               color = "red", linetype = "dashed", linewidth = 1) +
+    annotate("text", x = mean(data[[variable]], na.rm = TRUE), y = 1, 
+             label = round(mean(data[[variable]], na.rm = TRUE), 2), 
+             color = "red", vjust = -1, size = 5)
+}
+
+
+```
+
+```{r}
+crear_histograma(data_final, "aprobacion", 
+                 "Histograma del Porcentaje de Aprobación", 
+                 "Aprobación (%)")
+```
+
+**Distribución:**
+
+La mayoría de las observaciones se concentran en el rango de aprobación del 50% al 70%. Esto indica que la mayor parte de los colegios tienen una tasa de aprobación en ese rango. Existen pocas instituciones con tasas de aprobación menores al 40% o mayores al 80%, lo que muestra que esos casos son menos comunes.
+
+La distribución tiene forma aproximadamente simétrica, aunque parece un poco sesgada hacia la derecha (más valores acumulados hacia el rango superior).
+
+```{r}
+# Gráfico de BoxPlot
+
+ggplot(data_final, aes(x = "", y = aprobacion)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplot de la Distribución de Aprobación", y = "Aprobación (%)") +
+  theme_minimal()
+
+```
+
+**Análisis:**
+
+**Mediana:** El Boxplot muestra que la mediana (línea negra dentro de la caja) está alrededor de 60%, lo que indica que el 50% de los datos está por encima y el otro 50% está por debajo de ese valor.
+
+**Rango Intercuartil (IQR):** La caja representa el rango intercuartil (IQR), que va aproximadamente desde el 50% hasta el 70%. Esto significa que el 50% central de los datos de aprobación se encuentra en este rango.
+
+**Valores Atípicos (Outliers):** Hay varios puntos por encima del 90%, que se consideran valores atípicos. Estos outliers representan escuelas que tienen una aprobación muy alta en comparación con la mayoría de las demás.
+
+**Simetría:** El Boxplot muestra una leve asimetría hacia arriba, ya que la parte superior de la caja es más larga que la inferior, lo que indica que hay más variabilidad en los valores altos de aprobación.
+
+```{r}
+# Gráfico de violín 
+ggplot(data_final, aes(x = "", y = aprobacion)) +
+  geom_violin(fill = "lightgreen") +
+  labs(title = "Violin Plot de la Distribución de Aprobación", y = "Aprobación (%)") +
+  theme_minimal()
+
+
+```
+
+**Análisis:**
+
+**Distribución:** Se puede observar que la mayor concentración de datos está alrededor del 60%, donde la sección es más ancha. Esto sugiere que la mayoría de las escuelas tienen un porcentaje de aprobación cercano al 60%.
+
+**Densidad:** A diferencia del Boxplot, el Violin Plot muestra que hay una mayor densidad de valores por debajo de la mediana, con menos densidad en los valores más altos, excepto por un pico en el extremo superior, que coincide con los valores atípicos observados en el Boxplot.
+
+**Simetría y Outliers:** Al igual que en el Boxplot, el Violin Plot confirma una ligera asimetría positiva (hacia los valores más altos), con un pequeño grupo de valores atípicos o extremos que aparecen en el rango superior cerca del 100%.
+
+### **Porcentaje de probacion de los estudiantes con respecto a los horarios**
+
+```{r}
+# Asignar los nombres correspondientes al factor 'horario'
+df_final$horario <- factor(df_final$horario, levels = c(1, 2, 3), labels = c("Diurno", "Mixto", "Nocturno"))
+
+# Crear el boxplot con las nuevas etiquetas
+ggplot(data = df_final, mapping = aes(x = horario, y = aprobacion, colour = horario)) +
+    geom_boxplot() +
+    theme_bw() +
+    theme(legend.position = "none") +
+    labs(x = "Horario", y = "Aprobación (%)")  # Etiquetas del eje X e Y
+
+```
+
+**Los colegios diurnos:**
+
+Tienen la mayor variabilidad en las tasas de aprobación, con algunas instituciones que tienen resultados excepcionalmente altos (outliers) y otras que caen en rangos más bajos.
+
+**Los colegios mixtos:**
+
+Tienen una distribución más centrada, pero también presenta algunos outliers bajos, indicando que algunas instituciones tienen dificultades.
+
+**Los colegions Nocturnos:**
+
+Muestran resultados consistentes con un rango más alto y estable en las aprobaciones.
+
+### **Top 10 - Colegios con mejor porcentaje de aprobación**
+
+```{r}
+# Extraer el Top 10 de 'aprobacion', mostrando solo las columnas nombre_ins y aprobacion
+top_10 <- data_final[order(-data_final$aprobacion),][1:10, c("nombre_ins", "aprobacion")]
+top_10
+```
+
+### Top 10 - Colegios con el peor porcentaje de aprobación
+
+```{r}
+
+# Extraer el Lower 10 de 'aprobacion', mostrando solo las columnas nombre_ins y aprobacion
+lower_10 <- data_final[order(data_final$aprobacion),][1:10, c("nombre_ins", "aprobacion")]
+lower_10 <- lower_10[order(-lower_10$aprobacion), ]  
+lower_10
+
+```
+
+**Comportamiento de otros indicadores usados en el Modelo**
+
+```{r}
+crear_histograma(data_final, "Salud", 
+                 "Histograma de Indice de Salud", 
+                 "Indice Salud (%)")
+
+crear_histograma(data_final, "Economica", 
+                 "Histograma de Indice Economico", 
+                 "Indice Economico (%)")
+
+crear_histograma(data_final, "Seguridad", 
+                 "Histograma del Indice de Seguridad", 
+                 "Seguridad (%)")
+
+```
+
+Funciones para crear los mapas
+
+```{r}
+
+
+# Cargar las librerías necesarias
+library(leaflet)
+
+# Definir la función para crear el mapa con clusters para una variable determinada
+crear_mapa_con_cluster_general <- function(data, variable_hijo) {
+  
+  # Crear la paleta de colores para la variable
+  pal <- colorNumeric(palette = "RdYlGn", domain = range(data[[variable_hijo]], na.rm = TRUE))
+ 
+
+  # Custom clustering function with uniform icon size and centered text
+  customClusterOptions <- markerClusterOptions(
+    iconCreateFunction = JS(paste0("
+      function(cluster) {
+        var markers = cluster.getAllChildMarkers();
+        var sum = 0;
+        var count = markers.length;
+        for (var i = 0; i < count; i++) {
+          var value = markers[i].options.customOption;  // Acceder al valor con un nombre más claro
+          if (!isNaN(value)) {  // Asegurarse de que el valor no sea NaN
+            sum += Number(value);
+          }
+        }
+        var avg = sum / count;
+
+        // Define color based on average value
+        var color;
+        if (avg >= 90) {
+          color = '#1a9850';  // Green
+        } else if (avg >= 80) {
+          color = '#91cf60';
+        } else if (avg >= 70) {
+          color = '#d9ef8b';
+        } else if (avg >= 60) {
+          color = '#fee08b';
+        } else if (avg >= 50) {
+          color = '#fc8d59';  
+        } else {
+          color = '#d73027';  // Red
+        }
+
+        // Fixed size for all clusters
+        var size = 45;
+
+        return new L.DivIcon({
+          html: '<div style=\"background-color:' + color + '; width: ' + size + 'px; height: ' + size + 'px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 1.2;\">' + 
+                '<span style=\"font-size:12px;\">' + Math.round(avg) + '%<br>' + count + '</span></div>',
+          className: 'marker-cluster',
+          iconSize: new L.Point(size, size)
+        });
+      }
+    "))
+  )
+
+  # Crear el mapa
+  mapa <- leaflet(data) %>%
+    addTiles() %>%
+    addCircleMarkers(
+      ~X2, ~Y2, 
+      color = ~pal(get(variable_hijo)),  # Colorear los círculos con la variable seleccionada
+      fillOpacity = 0.7,
+      radius = 12,  # Tamaño ligeramente mayor para los marcadores individuales
+      stroke = FALSE,
+      popup = ~paste("<strong>Institución:</strong> ", nombre_ins, "<br><strong>", variable_hijo, ":</strong> ", get(variable_hijo)),
+      clusterOptions = customClusterOptions,
+      label = ~as.character(get(variable_hijo)),
+      options = markerOptions(customOption = ~get(variable_hijo))  # Aquí se asigna el valor correcto
+    ) %>%
+    addLegend(
+      pal = pal,
+      values = range(data[[variable_hijo]], na.rm = TRUE),
+      title = variable_hijo,
+      position = "topright",
+      labFormat = labelFormat(suffix = "%"),
+      opacity = 0.8
+    )
+  
+  return(mapa)
+}
+
+```
+
+```{r}
+
+
+# Definir la función para crear el mapa con clusters para una variable determinada
+crear_mapa_con_cluster_especifico <- function(data, variable_hijo) {
+  
+  # Crear la paleta de colores para la variable
+  #pal <- colorNumeric(palette = "RdYlGn", domain = range(data[[variable_hijo]], na.rm = TRUE))
+  pal <- colorNumeric(palette = "RdYlGn", domain = c(0, 100))
+
+  # Custom clustering function with uniform icon size and centered text
+  customClusterOptions <- markerClusterOptions(
+    iconCreateFunction = JS(paste0("
+      function(cluster) {
+        var markers = cluster.getAllChildMarkers();
+        var sum = 0;
+        var count = markers.length;
+        for (var i = 0; i < count; i++) {
+          var value = markers[i].options.customOption;  // Acceder al valor con un nombre más claro
+          if (!isNaN(value)) {  // Asegurarse de que el valor no sea NaN
+            sum += Number(value);
+          }
+        }
+        var avg = sum / count;
+
+        // Define color based on average value
+        var color;
+        if (avg >= 75) {
+          color = '#1a9850';  // Green (para valores de 75 en adelante)
+        } else if (avg >= 50) {
+          color = '#91cf60';  // Light Green (50-75)
+        } else if (avg >= 35) {
+          color = '#d9ef8b';  // Yellow (35-50)
+        } else if (avg >= 20) {
+          color = '#fee08b';  // Light Orange (20-35)
+        } else if (avg >= 10) {
+          color = '#fc8d59';  // Orange (10-20)
+        } else {
+          color = '#d73027';  // Red (0-10)
+        }
+
+        // Fixed size for all clusters
+        var size = 45;
+
+        return new L.DivIcon({
+          html: '<div style=\"background-color:' + color + '; width: ' + size + 'px; height: ' + size + 'px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-align: center; line-height: 1.2;\">' + 
+                '<span style=\"font-size:12px;\">' + Math.round(avg) + '%<br>' + count + '</span></div>',
+          className: 'marker-cluster',
+          iconSize: new L.Point(size, size)
+        });
+      }
+    "))
+  )
+
+  # Crear el mapa
+  mapa <- leaflet(data) %>%
+    addTiles() %>%
+    addCircleMarkers(
+      ~X2, ~Y2, 
+      color = ~pal(get(variable_hijo)),  # Colorear los círculos con la variable seleccionada
+      fillOpacity = 0.7,
+      radius = 12,  # Tamaño ligeramente mayor para los marcadores individuales
+      stroke = FALSE,
+      popup = ~paste("<strong>Institución:</strong> ", nombre_ins, "<br><strong>", variable_hijo, ":</strong> ", get(variable_hijo)),
+      clusterOptions = customClusterOptions,
+      label = ~as.character(get(variable_hijo)),
+      options = markerOptions(customOption = ~get(variable_hijo))  # Aquí se asigna el valor correcto
+    ) %>%
+    addLegend(
+      pal = pal,
+      values = range(data[[variable_hijo]], na.rm = TRUE),
+      title = variable_hijo,
+      position = "topright",
+      labFormat = labelFormat(suffix = "%"),
+      opacity = 0.8
+    )
+  
+  return(mapa)
+}
+
+```
+
+### Vizualizacion geográfica del porcentaje de aprobación por colegio
+
+```{r}
+crear_mapa_con_cluster_general(data_final, "aprobacion")
+
+```
+
+### Vizualizacion geográfica del Indice de Seguridad por distrito
+
+```{r}
+crear_mapa_con_cluster_general(data_final, "Seguridad")
+```
+
+### Vizualizacion geográfica del Indice de Salud por distrito
+
+```{r}
+crear_mapa_con_cluster_general(data_final, "Salud")
+```
+
+### Vizualizacion geográfica del Indice Económico distrito
+
+```{r}
+crear_mapa_con_cluster_especifico(data_final, "Economica")
+```
+
+### Valores de aprobación países OCDE prueba PISA
+
+```{r}
+
+# Datos: Puntuaciones PISA y lista de países proporcionada
+pisa_scores <- data.frame(
+  country = c("Singapore", "Macau", "Taiwan", "Japan", "South Korea", "Hong Kong", "Estonia", "Canada", 
+              "Ireland", "Switzerland", "Australia", "New Zealand", "Finland", "United Kingdom", 
+              "Poland", "Czech Republic", "Denmark", "United States", "Sweden", "Belgium", "Austria", 
+              "Slovenia", "Latvia", "Germany", "Netherlands", "France", "Portugal", "Hungary", "Italy", 
+              "Lithuania", "Spain", "Croatia", "Norway", "Vietnam", "Israel", "Turkey", "Malta", 
+              "Slovakia", "Iceland", "Serbia", "Ukraine", "Brunei", "Greece", "Chile", "Romania", 
+              "United Arab Emirates", "Uruguay", "Qatar", "Bulgaria", "Moldova", "Kazakhstan", "Mexico", 
+              "Montenegro", "Mongolia", "Malaysia", "Costa Rica", "Cyprus", "Peru", "Colombia", 
+              "Jamaica", "Brazil", "Argentina", "Thailand", "Saudi Arabia", "Georgia", "Azerbaijan", 
+              "Panama", "North Macedonia", "Indonesia", "Albania", "Guatemala", "Palestine", 
+              "Paraguay", "El Salvador", "Jordan", "Morocco", "Philippines", "Uzbekistan", "Kosovo", 
+              "Dominican Republic", "Cambodia"),
+  score = c(560, 535, 533, 533, 523, 520, 516, 506, 504, 498, 497, 495, 495, 494, 492, 491, 491, 
+            489, 488, 486, 486, 485, 484, 482, 480, 478, 478, 477, 477, 477, 477, 474, 474, 468, 466, 
+            462, 459, 458, 447, 442, 440, 439, 436, 435, 428, 427, 425, 422, 414, 414, 411, 407, 
+            405, 405, 404, 404, 403, 402, 401, 397, 397, 395, 394, 387, 383, 381, 379, 376, 369, 
+            367, 364, 361, 360, 360, 359, 356, 353, 352, 351, 350, 337)
+)
+
+# Ajustar nombres de países en pisa_scores para que coincidan con world_map
+pisa_scores$country[pisa_scores$country == "South Korea"] <- "Korea, South"
+pisa_scores$country[pisa_scores$country == "United States"] <- "United States of America"
+pisa_scores$country[pisa_scores$country == "United Arab Emirates"] <- "United Arab Emirates"
+pisa_scores$country[pisa_scores$country == "United Kingdom"] <- "United Kingdom"
+pisa_scores$country[pisa_scores$country == "North Macedonia"] <- "Macedonia"
+pisa_scores$country[pisa_scores$country == "Hong Kong"] <- "Hong Kong S.A.R."
+pisa_scores$country[pisa_scores$country == "Kosovo"] <- "Republic of Kosovo"
+
+
+# Obtener el mapa del mundo
+world_map <- getMap(resolution = "low")
+
+# Crear una columna para almacenar las puntuaciones PISA en world_map@data
+world_map@data$pisa_score <- NA  # Inicializar con NA
+
+# Asignar las puntuaciones directamente a los países en world_map
+for (i in 1:nrow(pisa_scores)) {
+  country_name <- pisa_scores$country[i]
+  score_value <- pisa_scores$score[i]
+  
+  # Buscar el índice del país en world_map@data
+  country_index <- which(world_map@data$ADMIN == country_name)
+  
+  # Si el país se encuentra, asignar el valor de PISA
+  if (length(country_index) > 0) {
+    world_map@data$pisa_score[country_index] <- score_value
+  }
+}
+
+# Crear una paleta de colores basada en las puntuaciones
+pal <- colorNumeric("YlGnBu", domain = world_map@data$pisa_score, na.color = "white")
+
+# Crear el mapa usando leaflet
+leaflet(data = world_map) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~pal(world_map@data$pisa_score),
+    fillOpacity = 0.7,
+    color = "black",
+    weight = 0.5,
+    popup = ~paste(world_map@data$ADMIN, "<br>PISA Score: ", world_map@data$pisa_score)
+  ) %>%
+  addLegend(pal = pal, values = world_map@data$pisa_score, title = "PISA Score", position = "bottomright")
+
+
+```
+
+### Correlacion de las observaciones
+
+```{r, fig.width=14, fig.height=10}
+
+#options(repr.plot.width = 18, repr.plot.height = 10)
+
+
+# Calcular la matriz de correlación
+cor_matrix <- cor(df_exp, use = "complete.obs", method = "pearson")
+
+# Asegurar el mismo orden de variables en los ejes X e Y
+var_order <- colnames(cor_matrix)
+
+# Visualizar la matriz de correlación solo en la parte inferior
+ggcorrplot(
+  cor_matrix, 
+  lab = TRUE,                   # Mostrar valores de correlación en las celdas
+  lab_size = 3.5,                 
+  hc.order = FALSE,              # Mantener el orden original
+  type = "lower",                # Mostrar solo la mitad inferior
+  outline.color = "white",       
+  ggtheme = ggplot2::theme_minimal(), 
+  show.legend = TRUE             # Mostrar la leyenda de colores
+) +
+  scale_x_discrete(limits = var_order) +  # Mantener el orden del eje X
+  scale_y_discrete(limits = rev(var_order)) +  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),  # Rotar etiquetas del eje X
+    axis.text.y = element_text(size = 14),                         
+    panel.grid.major = element_line(color = "grey80"),            
+    panel.grid.minor = element_line(color = "grey90")             
+  ) +
+  ggtitle("Matriz de Correlación de Indicadores en Colegios") +    # Agregar el título
+  theme(plot.title = element_text(hjust = 0.5, size = 18))        # Centrar el título y ajustar el tamaño
+
+
+
+```
+
+**Análisis de las Correlaciones**:
+
+No se observan correlaciones fuertes ni medias en relación con la aprobación. Las correlaciones identificadas son mayormente débiles, lo que sugiere que las tasas de aprobación no están fuertemente influenciadas por las variables incluidas en el análisis, como la infraestructura o los servicios proporcionados.
+
+Esto podría indicar que otros factores no medidos en esta matriz podrían tener un mayor impacto en las tasas de aprobación en las instituciones.
+
+Relaciones débiles (correlaciones entre \|0\| y \|0.3\|):
+
+**Indice de Seguridad** (0.18): Hay una correlación positiva débil entre la seguridad en los distritos donde están los colegios y las tasas de aprobación. Esto sugiere que a mayor seguridad percibida, las tasas de aprobación son ligeramente mejores, pero no es un factor determinante.
+
+**Indice de Salud** (0.19): La correlación positiva con el indice de salud en los distritos también es débil. Esto indica que aunque los servicios de salud pueden influir en las tasas de aprobación, su impacto es limitado.
+
+**Indice Económico** (0.18): La condición económica de los distritos donde están los colegios tien una correlación positiva débil con la aprobación. Esto implica que los recursos económicos no tienen un impacto fuerte en el rendimiento académico medido por la aprobación.
+
+**Gimnasio** (0.13): La disponibilidad de instalaciones deportivas muestra una correlación positiva débil con la aprobación. Los estudiantes en instituciones con gimnasio tienden a tener mejores tasas de aprobación, aunque la relación no es muy fuerte.
+
+**Internet** (0.07): El acceso a Internet en las instituciones tiene una relación positiva muy débil con la aprobación, lo que sugiere que no es un factor influyente en las tasas de aprobación.
+
+**Servicio Médico** (0.12): Aunque importante, la correlación del servicio médico con la aprobación es muy débil, lo que indica que otros factores tienen más peso en los resultados de aprobación.
+
+**Talleres** (-0.03): Los talleres tienen una correlación negativa muy débil con la aprobación, indicando una relación insignificante entre estas variables.
+
+**Laboratorio** (0.01): Los laboratorios tampoco presentan una correlación significativa con las tasas de aprobación, siendo casi nula la relación.
+
+**Comedor** (0.17): La disponibilidad de un comedor tiene una correlación débil positiva con la aprobación, sugiriendo un impacto menor en los resultados académicos.
+
+**Biblioteca** (0.17): Similar al comedor, la presencia de una biblioteca tiene un impacto leve en la aprobación, mostrando una correlación débil positiva.
+
+**Soda** (0.15): La correlación positiva con la soda en las instituciones es débil, sugiriendo que el servicio de alimentos y bebidas no tiene un impacto significativo en las tasas de aprobación.
+
+**Computadoras Buenas** (0.15): Aunque el acceso a buenas computadoras es positivo, su correlación con la aprobación es débil.
+
+**Proporción de Aulas Buenas** (0.12): La calidad de las aulas también tiene una correlación positiva débil, indicando que la infraestructura no es un factor determinante en las tasas de aprobación.
+
+**Estudiantes por Aula** (0.05): La cantidad de estudiantes por aula tiene una correlación débil con la aprobación.
+
+**Expulsiones** (-0.11): Las expulsiones tienen una correlación negativa débil con la aprobación, lo que sugiere que un mayor número de expulsiones puede afectar ligeramente las tasas de aprobación, pero no de manera significativa.
+
+**Violencia Estudiantil** (-0.08): La violencia estudiantil también presenta una correlación negativa débil con la aprobación, sugiriendo que afecta mínimamente el rendimiento académico.
+
+**Abandonos** (-0.06): Aunque los abandonos tienen un impacto negativo, la correlación con la aprobación es muy débil.
+
+Por otro lado las correlaciones entre las diferentes variables de infraestructura y servicios de los colegios revelan ciertas agrupaciones lógicas. Las instalaciones como sodas, comedores y bibliotecas tienden a coexistir en las instituciones con mejores recursos. Las expulsiones están relacionadas de forma moderada con la violencia estudiantil, lo que sugiere que la disciplina sigue siendo un factor relevante en el ambiente escolar.
+
+Ejemplo:
+
+**Indice económico y Salud** (0.56): Existe una relación fuerte entre las condiciones económicas y la provisión de servicios de salud.
+
+**Soda y Biblioteca** (0.53): La correlación positiva sugiere que los colegios que disponen de una soda también tienden a tener bibliotecas, lo que podría estar relacionado con la infraestructura más completa en estas instituciones.
+
+**Soda y Laboratorio** (0.41): Hay una correlación media entre tener una soda y la disponibilidad de laboratorios. Las instituciones con laboratorios también tienden a ofrecer servicios de alimentación.
+
+**Soda y Comedor** (0.36): La relación entre la soda y el comedor es moderada, lo cual es esperable ya que ambos servicios están relacionados con la provisión de alimentos a los estudiantes.
+
+**Biblioteca y Laboratorio** (0.42): La correlación entre biblioteca y laboratorio sugiere que las instituciones que invierten en una infraestructura académica sólida tienden a ofrecer ambos servicios.
+
+**Expulsiones y Violencia Estudiantil** (0.36): Hay una correlación positiva media entre la violencia estudiantil y las expulsiones. Esto sugiere que los problemas disciplinarios asociados con la violencia están vinculados a una mayor frecuencia de expulsiones.
+
+```{r}
+
+# Definir la función para crear el scatter plot 
+
+crear_scatter_plot <- function(data, var_x, var_y, titulo, titulo_x, titulo_y) {
+  
+  ggplot(data = data, mapping = aes(x = {{var_x}}, y = {{var_y}})) +
+    geom_point(colour = "darkred") +  # Color de los puntos
+    geom_smooth(method = "lm", colour = "black") +  # Línea de regresión lineal
+    theme_bw() +  # Tema de fondo en blanco y negro
+    labs(
+      title = titulo,        # Título del gráfico
+      x = titulo_x,          # Título del eje X
+      y = titulo_y           # Título del eje Y
+    )
+}
+
+
+crear_scatter_plot(df_exp, Economica, aprobacion, 
+                   "Relación entre Índice Económico y Aprobación", 
+                   "Índice Económico", "Porcentaje de Aprobación (%)")
+
+
+
+```
+
+La línea de regresión lineal mostrada en el gráfico sugiere una correlación positiva entre el Índice Económico y el Porcentaje de Aprobación.
+
+Aunque la pendiente de la línea es suave, lo que sugiere una correlación débil, todavía indica que, en general, a medida que aumenta el Índice Económico, también tiende a aumentar el Porcentaje de Aprobación.
+
+```{r}
+
+crear_scatter_plot(df_exp, Seguridad, aprobacion, 
+                   "Relación entre Índice Seguridad y Aprobación", 
+                   "Índice Seguridad", "Porcentaje de Aprobación (%)")
+
+```
+
+Aunque se podría esperar que una mayor seguridad en las instituciones estuviera relacionada con un mayor porcentaje de aprobación, este gráfico sugiere lo contrario. No hay una relación clara entre la seguridad y la aprobación.
+
+De hecho, la ligera pendiente negativa de la línea de tendencia podría implicar que, en algunos casos, instituciones con mayor seguridad tienden a tener porcentajes de aprobación más bajos, pero esta tendencia es tan débil que es estadísticamente insignificante.
+
+```{r}
+
+crear_scatter_plot(df_exp, Salud, aprobacion, 
+                   "Relación entre Índice Salud y Aprobación", 
+                   "Índice Salud", "Porcentaje de Aprobación (%)")
+
+```
+
+Se observa una correlacion fuerte y positiva entre expulsiones y violencia estudiantil.
+
+```{r}
+
+crear_scatter_plot(df_exp, expulsiones, violencia_estudiantil, 
+                   "Relación entre Índice Expulsiones y Violencia Estudiantil", 
+                   "Índice Expulsiones", "Indice Violencia Estudiantil")
+
+```
+
+```{r}
+ggplot(data = df_exp, mapping = aes(x = p_aulas_buenas, y = estudiantes_aulas)) + 
+  geom_boxplot(mapping = aes(group = cut_width(p_aulas_buenas, 7))) +
+  labs(
+    title = "Relación entre Aulas Buenas y Estudiantes con Aulas",
+    x = "p_aulas_buenas",
+    y = "estudiantes_aulas"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5)
+  )
+
+```
+
+# Modelado
+
+Realizar el modelado utilizando diferentes algoritmos para identificar el que mejor prediga la calidad de la aprobación en los Colegios de Secundaria en Costa Rica.
+
+```{r}
+# Se realiza la seleccion de variables para realizar los modelados
+
+df_ml <- data_final %>%  select( "abandonos" ,"violencia_estudiantil", "expulsiones", "estudiantes_aulas", "p_aulas_buenas" ,"soda",  "Biblioteca", "comedor", "laboratorio" , "Talleres", "Servicio_medico" , "Internet", "gimnasio","horario","Economica", "Salud",  "Seguridad", "calidad")
+                                
+df_ml
+
+#write.csv(df_ml, "df_ml.csv")
+                                
+```
+
+**Balance de la variable a predecir la Clase: Calidad**
+
+```{r}
+prediction.variable.balance(df_ml,'calidad')
+```
+
+El gráfico muestra un desbalance en la variable "calidad", donde hay significativamente más observaciones en la categoría **'n'** (aprox. 600) que en la categoría **'y'** (aprox. 400). Este desbalance puede causar que los modelos de clasificación tiendan a predecir mejor la clase mayoritaria (**'n'**) y fallen en la clase minoritaria (**'y'**)
+
+**Poder predictivo de las variables**
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","Economica")
+```
+
+La variable **Económica** muestra una buena capacidad predictiva, ya que las distribuciones de las clases **'n'** y **'y'** están bien diferenciadas, con **'n'** concentrada en valores bajos y **'y'** en valores más altos.
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","Salud")
+```
+
+La variable **Salud** también tiene un buen poder predictivo, con una diferenciación clara entre las clases **'n'** y **'y'**, donde **'y'** tiende a concentrarse en valores más altos, mientras que **'n'** está más distribuida hacia valores intermedios.
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","Seguridad")
+```
+
+La variable **Seguridad** tiene un poder predictivo moderado, con ambos grupos concentrados en valores altos, pero la clase **'n'** predomina ligeramente
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","estudiantes_aulas")
+```
+
+La variable **estudiantes_aulas** muestra un patrón donde los valores más bajos están asociados con la clase **'y'** (calidad alta), mientras que los valores más altos tienden a asociarse más con la clase **'n'** (calidad baja). Esto indica que a medida que aumenta el número de estudiantes por aula, es más probable que la calidad percibida disminuya.
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","p_aulas_buenas")
+```
+
+La variable **p_aulas_buenas** indica que, a medida que aumenta el porcentaje de aulas en buenas condiciones, también aumenta la probabilidad de que la calidad de la institución sea alta (valor "y"). Las instituciones con un mayor porcentaje de aulas en buenas condiciones (cerca del 100%) tienden a estar asociadas con una mejor calidad, lo que sugiere que la infraestructura adecuada en las aulas es un factor importante para la calidad educativa.
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","abandonos")
+```
+
+En la variable **abandono**, se observa una tendencia clara: las instituciones con pocos o ningún abandono son más propensas a ser calificadas como "y" (alta calidad). Por otro lado, a medida que el número de abandonos aumenta, la probabilidad de que una institución reciba una calificación de "n" (baja calidad) también crece.
+
+```{r}
+numerical.predictive.power(df_ml, "calidad","violencia_estudiantil")
+```
+
+En la variable **violencia estudiantil**, la mayoría de las instituciones con baja o nula violencia estudiantil tienden a ser calificadas como de alta calidad ("y"). A medida que los niveles de violencia aumentan, es más probable que las instituciones reciban una calificación de baja calidad ("n"). La violencia estudiantil, aunque con una distribución sesgada hacia valores bajos, parece ser un fuerte indicador de baja calidad cuando está presente.
+
+**Estrategia para el modelado : Calibrar los modelos primero y luego aplicar validación cruzada**
+
+### Calibración de modelos
+
+*(Ver documento con la calibración)*
+
+**Lista de Modelos y Hiperparámetros Optimizados**
+
+| **Modelo**                  | **Hiperparámetros Optimizados**                                                                                                                                    |
+|-------------------|-----------------------------------------------------|
+| **SVM**                     | \- `kernel`: **`linear`** <br>                                                                                                                                     |
+| **KNN**                     | \- `kernel`: **`biweight`** <br>                                                                                                                                   |
+| **Potenciación (AdaBoost)** | \- `iter`: Número de iteraciones (**50**) <br> - `nu`: Tasa de aprendizaje (0.1)                                                                                   |
+| **GLM**                     | \- No se optimiza ningún hiperparámetro específico para este modelo, solo se ajusta la regresión logística binaria (`family = binomial`)                           |
+| **GLMNET**                  | \- `alpha`: **1** <br> - `lambda`: 0.01                                                                                                                            |
+| **Bosques Aleatorios**      | \- `ntree`: Número de árboles (100) <br> - `mtry`: Número de variables consideradas en cada split (**4**)                                                          |
+| **Árboles de Decisión**     | \- `cp`: Parámetro de complejidad para la poda (**0.05**) <br> - `maxdepth`: Profundidad máxima del árbol (15)                                                     |
+| **Naive Bayes**             | \- `fL`: Suavizado de Laplace (0) <br> - `usekernel`: Usar kernel (TRUE) <br> - `adjust`: Ajuste del kernel (1)                                                    |
+| **XGBoosting**              | \- `booster`: **`dart`** <br>                                                                                                                                      |
+| **Neural Net**              | \- `size`: Número de neuronas en la capa oculta (**100**) <br> - `decay`: Tasa de regularización (**0.001**) <br> - `maxit`: Número máximo de iteraciones (**50**) |
+
+### Validación cruzada de los Modelos
+
+**Generar todos los modelos usando validación cruzada para comparar y encontrar el modelo con el mejor rendimiento**
+
+```{r}
+numero.filas                <- nrow(df_ml)
+cantidad.validacion.cruzada <- 5
+cantidad.grupos             <- 10
+
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.svm.total <- 0
+pg.knn.total <- 0
+pg.bayes.total <- 0
+pg.arbol.total <- 0
+pg.bosque.total <- 0    
+pg.potenciacion.total <- 0
+pg.red.total <- 0    
+pg.xgboost.total <- 0  
+pg.glm.total <- 0   
+pg.glmnet.total <- 0 
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+lista.pg.svm <- list()
+lista.pg.knn <- list()
+lista.pg.bayes <- list()
+lista.pg.arbol <- list()
+lista.pg.bosque <- list()   
+lista.pg.potenciacion <- list()
+lista.pg.red <- list()   
+lista.pg.xgboost <- list()
+lista.pg.glm <- list() 
+lista.pg.glmnet <- list()
+
+# Acumuladores del NO para el gráfico de barras
+no.svm.total <- 0
+no.knn.total <- 0
+no.bayes.total <- 0
+no.arbol.total <- 0
+no.bosque.total <- 0    
+no.potenciacion.total <- 0
+no.red.total <- 0    
+no.xgboost.total <- 0  
+no.glm.total <- 0   
+no.glmnet.total <- 0 
+# Listas para guardar lel No en cada experimento para el gráfico de líneas
+lista.no.svm <- list()
+lista.no.knn <- list()
+lista.no.bayes <- list()
+lista.no.arbol <- list()
+lista.no.bosque <- list()   
+lista.no.potenciacion <- list()
+lista.no.red <- list()   
+lista.no.xgboost <- list()
+lista.no.glm <- list() 
+lista.no.glmnet <- list()
+
+# Acumuladores del SI para el gráfico de barras
+si.svm.total <- 0
+si.knn.total <- 0
+si.bayes.total <- 0
+si.arbol.total <- 0
+si.bosque.total <- 0    
+si.potenciacion.total <- 0
+si.red.total <- 0    
+si.xgboost.total <- 0  
+si.glm.total <- 0   
+si.glmnet.total <- 0 
+# Listas para guardar del SI en cada experimento para el gráfico de líneas
+lista.si.svm <- list()
+lista.si.knn <- list()
+lista.si.bayes <- list()
+lista.si.arbol <- list()
+lista.si.bosque <- list()   
+lista.si.potenciacion <- list()
+lista.si.red <- list()   
+lista.si.xgboost <- list()
+lista.si.glm <- list() 
+lista.si.glmnet <- list()
+
+```
+
+```{r}
+
+
+# Validación cruzada 3 veces
+for (i in 1:cantidad.validacion.cruzada) {
+  grupos <- createFolds(1:numero.filas, cantidad.grupos) # Crea los 10 grupos
+  # Acumuladores de la Precisión Global para el gráfico de barras
+  pg.svm <- 0
+  pg.knn <- 0
+  pg.bayes <- 0
+  pg.arbol <- 0
+  pg.bosque <- 0    
+  pg.potenciacion <- 0
+  pg.red <- 0    
+  pg.xgboost <- 0  
+  pg.glm <- 0   
+  pg.glmnet <- 0   
+  
+  # Acumuladores del NO para el gráfico de barras
+  no.svm <- 0
+  no.knn <- 0
+  no.bayes <- 0
+  no.arbol <- 0
+  no.bosque <- 0    
+  no.potenciacion <- 0
+  no.red <- 0    
+  no.xgboost <- 0  
+  no.glm <- 0   
+  no.glmnet <- 0 
+
+  # Acumuladores del SI para el gráfico de barras
+  si.svm <- 0
+  si.knn <- 0
+  si.bayes <- 0
+  si.arbol <- 0
+  si.bosque <- 0    
+  si.potenciacion <- 0
+  si.red <- 0    
+  si.xgboost <- 0  
+  si.glm <- 0   
+  si.glmnet <- 0 
+
+ # Este ciclo es el que hace validación cruzada con 5 grupos
+  for (k in 1:cantidad.grupos) {
+    muestra   <- grupos[[k]] # Por ser una lista requiere de doble paréntesis
+    ttesting  <- df_ml[muestra, ]
+    ttraining <- df_ml[-muestra, ]
+    
+    modelo          <- train.svm(calidad ~ ., data = ttraining, kernel = "linear", probability = FALSE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.svm <- pg.svm + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.svm <- no.svm + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.svm <- si.svm + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.knn(calidad ~ ., data = ttraining, kernel = "biweight",  kmax = 37, probability = FALSE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.knn <- pg.knn + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.knn <- no.knn + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.knn <- si.knn + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    
+    modelo          <- train.bayes(calidad ~ ., data = ttraining,fL = 0, usekernel = TRUE, adjust = 1)
+    prediccion      <- predict(modelo, ttesting)
+    pg.bayes <- pg.bayes + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.bayes <- no.bayes + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.bayes <- si.bayes + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.rpart(calidad ~ ., data = ttraining, cp = 0.05, maxdepth = 15)
+    prediccion      <- predict(modelo, ttesting)
+    pg.arbol <- pg.arbol + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.arbol <- no.arbol + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.arbol <- si.arbol + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.randomForest(calidad ~ ., data = ttraining,ntree = 100, mtry = 4)
+    prediccion      <- predict(modelo, ttesting)
+    pg.bosque <- pg.bosque + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.bosque <- no.bosque + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.bosque <- si.bosque + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.ada(calidad ~ ., data = ttraining, iter = 50, nu = 0.1, type = "discrete")
+    prediccion      <- predict(modelo, ttesting)
+    pg.potenciacion <- pg.potenciacion + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.potenciacion <- no.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.potenciacion <- si.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.nnet(calidad ~ ., data = ttraining, size = 10, MaxNWts = 5000, 
+                                  rang = 0.01, decay = 5e-4, maxit = 45, trace = TRUE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.red <- pg.red + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.red <- no.red + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.red <- si.red + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.xgboost(calidad ~ ., data = ttraining,booster = 'dart', nrounds = 79,
+                                   print_every_n = 10, maximize = F , eval_metric = "error",verbose = 0)
+    prediccion      <- predict(modelo, ttesting)
+    pg.xgboost <- pg.xgboost + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.xgboost <- no.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.xgboost <- si.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.glm(calidad ~ ., data = ttraining)
+    prediccion      <- predict(modelo, ttesting)
+    pg.glm <- pg.glm + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.glm <- no.glm + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.glm <- si.glm + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.glmnet(calidad ~ ., data = ttraining, alpha = 1, lambda = 0.01, standardize = TRUE)
+    prediccion      <- predict(modelo, ttesting)
+    pg.glmnet <- pg.glmnet + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.glmnet <- no.glmnet + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.glmnet <- si.glmnet + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  }
+  pg.svm <- pg.svm/cantidad.grupos
+  pg.knn <- pg.knn/cantidad.grupos
+  pg.bayes <- pg.bayes/cantidad.grupos
+  pg.arbol <- pg.arbol/cantidad.grupos
+  pg.bosque <- pg.bosque/cantidad.grupos
+  pg.potenciacion <- pg.potenciacion/cantidad.grupos
+  pg.red <- pg.red/cantidad.grupos
+  pg.xgboost <- pg.xgboost/cantidad.grupos
+  pg.glm <- pg.glm/cantidad.grupos
+  pg.glmnet <- pg.glmnet/cantidad.grupos  
+
+  pg.svm.total <- pg.svm.total + pg.svm
+  pg.knn.total <- pg.knn.total + pg.knn
+  pg.bayes.total <- pg.bayes.total + pg.bayes
+  pg.arbol.total <- pg.arbol.total + pg.arbol
+  pg.bosque.total <- pg.bosque.total + pg.bosque
+  pg.potenciacion.total <- pg.potenciacion.total + pg.potenciacion
+  pg.red.total <- pg.red.total + pg.red
+  pg.xgboost.total <- pg.xgboost.total + pg.xgboost
+  pg.glm.total <- pg.glm.total + pg.glm
+  pg.glmnet.total <- pg.glmnet.total + pg.glmnet   
+  
+  lista.pg.svm <- append(lista.pg.svm,pg.svm)
+  lista.pg.knn <- append(lista.pg.knn,pg.knn)
+  lista.pg.bayes <- append(lista.pg.bayes,pg.bayes)
+  lista.pg.arbol <- append(lista.pg.arbol,pg.arbol)
+  lista.pg.bosque <- append(lista.pg.bosque,pg.bosque)
+  lista.pg.potenciacion <- append(lista.pg.potenciacion,pg.potenciacion)
+  lista.pg.red <- append(lista.pg.red,pg.red)
+  lista.pg.xgboost <- append(lista.pg.xgboost,pg.xgboost)
+  lista.pg.glm <- append(lista.pg.glm,pg.glm)
+  lista.pg.glmnet <-append(lista.pg.glmnet,pg.glmnet) 
+
+  no.svm <- no.svm/cantidad.grupos
+  no.knn <- no.knn/cantidad.grupos
+  no.bayes <- no.bayes/cantidad.grupos
+  no.arbol <- no.arbol/cantidad.grupos
+  no.bosque <- no.bosque/cantidad.grupos
+  no.potenciacion <- no.potenciacion/cantidad.grupos
+  no.red <- no.red/cantidad.grupos
+  no.xgboost <- no.xgboost/cantidad.grupos
+  no.glm <- no.glm/cantidad.grupos
+  no.glmnet <- no.glmnet/cantidad.grupos  
+  
+  si.svm <- si.svm/cantidad.grupos
+  si.knn <- si.knn/cantidad.grupos
+  si.bayes <- si.bayes/cantidad.grupos
+  si.arbol <- si.arbol/cantidad.grupos
+  si.bosque <- si.bosque/cantidad.grupos
+  si.potenciacion <- si.potenciacion/cantidad.grupos
+  si.red <- si.red/cantidad.grupos
+  si.xgboost <- si.xgboost/cantidad.grupos
+  si.glm <- si.glm/cantidad.grupos
+  si.glmnet <- si.glmnet/cantidad.grupos  
+
+  no.svm.total <- no.svm.total + no.svm
+  no.knn.total <- no.knn.total + no.knn
+  no.bayes.total <- no.bayes.total + no.bayes
+  no.arbol.total <- no.arbol.total + no.arbol
+  no.bosque.total <- no.bosque.total + no.bosque
+  no.potenciacion.total <- no.potenciacion.total + no.potenciacion
+  no.red.total <- no.red.total + no.red
+  no.xgboost.total <- no.xgboost.total + no.xgboost
+  no.glm.total <- no.glm.total + no.glm
+  no.glmnet.total <- no.glmnet.total + no.glmnet   
+  
+  si.svm.total <- si.svm.total + si.svm
+  si.knn.total <- si.knn.total + si.knn
+  si.bayes.total <- si.bayes.total + si.bayes
+  si.arbol.total <- si.arbol.total + si.arbol
+  si.bosque.total <- si.bosque.total + si.bosque
+  si.potenciacion.total <- si.potenciacion.total + si.potenciacion
+  si.red.total <- si.red.total + si.red
+  si.xgboost.total <- si.xgboost.total + si.xgboost
+  si.glm.total <- si.glm.total + si.glm
+  si.glmnet.total <- si.glmnet.total + si.glmnet  
+  
+  lista.no.svm <- append(lista.no.svm,no.svm)
+  lista.no.knn <- append(lista.no.knn,no.knn)
+  lista.no.bayes <- append(lista.no.bayes,no.bayes)
+  lista.no.arbol <- append(lista.no.arbol,no.arbol)
+  lista.no.bosque <- append(lista.no.bosque,no.bosque)
+  lista.no.potenciacion <- append(lista.no.potenciacion,no.potenciacion)
+  lista.no.red <- append(lista.no.red,no.red)
+  lista.no.xgboost <- append(lista.no.xgboost,no.xgboost)
+  lista.no.glm <- append(lista.no.glm,no.glm)
+  lista.no.glmnet <-append(lista.no.glmnet,no.glmnet) 
+  
+  lista.si.svm <- append(lista.si.svm,si.svm)
+  lista.si.knn <- append(lista.si.knn,si.knn)
+  lista.si.bayes <- append(lista.si.bayes,si.bayes)
+  lista.si.arbol <- append(lista.si.arbol,si.arbol)
+  lista.si.bosque <- append(lista.si.bosque,si.bosque)
+  lista.si.potenciacion <- append(lista.si.potenciacion,si.potenciacion)
+  lista.si.red <- append(lista.si.red,si.red)
+  lista.si.xgboost <- append(lista.si.xgboost,si.xgboost)
+  lista.si.glm <- append(lista.si.glm,si.glm)
+  lista.si.glmnet <-append(lista.si.glmnet,si.glmnet) 
+}
+pg.svm.total <- pg.svm.total/cantidad.validacion.cruzada
+pg.knn.total <- pg.knn.total/cantidad.validacion.cruzada
+pg.bayes.total <- pg.bayes.total/cantidad.validacion.cruzada
+pg.arbol.total <- pg.arbol.total/cantidad.validacion.cruzada
+pg.bosque.total <- pg.bosque.total/cantidad.validacion.cruzada
+pg.potenciacion.total <- pg.potenciacion.total/cantidad.validacion.cruzada
+pg.red.total <- pg.red.total/cantidad.validacion.cruzada
+pg.xgboost.total <- pg.xgboost.total/cantidad.validacion.cruzada
+pg.glm.total <- pg.glm.total/cantidad.validacion.cruzada
+pg.glmnet.total <- pg.glmnet.total/cantidad.validacion.cruzada
+
+no.svm.total <- no.svm.total/cantidad.validacion.cruzada
+no.knn.total <- no.knn.total/cantidad.validacion.cruzada
+no.bayes.total <- no.bayes.total/cantidad.validacion.cruzada
+no.arbol.total <- no.arbol.total/cantidad.validacion.cruzada
+no.bosque.total <- no.bosque.total/cantidad.validacion.cruzada
+no.potenciacion.total <- no.potenciacion.total/cantidad.validacion.cruzada
+no.red.total <- no.red.total/cantidad.validacion.cruzada
+no.xgboost.total <- no.xgboost.total/cantidad.validacion.cruzada
+no.glm.total <- no.glm.total/cantidad.validacion.cruzada
+no.glmnet.total <- no.glmnet.total/cantidad.validacion.cruzada
+
+
+si.svm.total <- si.svm.total/cantidad.validacion.cruzada
+si.knn.total <- si.knn.total/cantidad.validacion.cruzada
+si.bayes.total <- si.bayes.total/cantidad.validacion.cruzada
+si.arbol.total <- si.arbol.total/cantidad.validacion.cruzada
+si.bosque.total <- si.bosque.total/cantidad.validacion.cruzada
+si.potenciacion.total <- si.potenciacion.total/cantidad.validacion.cruzada
+si.red.total <- si.red.total/cantidad.validacion.cruzada
+si.xgboost.total <- si.xgboost.total/cantidad.validacion.cruzada
+si.glm.total <- si.glm.total/cantidad.validacion.cruzada
+si.glmnet.total <- si.glmnet.total/cantidad.validacion.cruzada
+```
+```{r}
+# Lista de precisiones globales para el gráfico de barras
+lista.pg <- list(
+  SVM = pg.svm.total, 
+  KNN = pg.knn.total,
+  BAYES = pg.bayes.total,
+  ARBOL = pg.arbol.total,
+  BOSQUES = pg.bosque.total,
+  POTENCIACIÓN = pg.potenciacion.total,  
+  RED = pg.red.total,
+  XGBOOSTING = pg.xgboost.total,
+  GLM = pg.glm.total,
+  GLMNET = pg.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.pg$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.svm,
+                        lista.pg.knn,
+                        lista.pg.bayes,
+                        lista.pg.arbol,
+                        lista.pg.bosque,
+                        lista.pg.potenciacion,
+                        lista.pg.red,
+                        lista.pg.xgboost,
+                        lista.pg.glm,
+                        lista.pg.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(precision)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del NO para el gráfico de barras
+lista.no <- list(
+  SVM = no.svm.total, 
+  KNN = no.knn.total,
+  BAYES = no.bayes.total,
+  ARBOL = no.arbol.total,
+  BOSQUES = no.bosque.total,
+  POTENCIACIÓN = no.potenciacion.total,  
+  RED = no.red.total,
+  XGBOOSTING = no.xgboost.total,
+  GLM = no.glm.total,
+  GLMNET = no.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.no$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(lista.no.svm,
+                        lista.no.knn,
+                        lista.no.bayes,
+                        lista.no.arbol,
+                        lista.no.bosque,
+                        lista.no.potenciacion,
+                        lista.no.red,
+                        lista.no.xgboost,
+                        lista.no.glm,
+                        lista.no.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(no)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# Lista del SI para el gráfico de barras
+lista.si <- list(
+  SVM = si.svm.total, 
+  KNN = si.knn.total,
+  BAYES = si.bayes.total,
+  ARBOL = si.arbol.total,
+  BOSQUES = si.bosque.total,
+  POTENCIACIÓN = si.potenciacion.total,  
+  RED = si.red.total,
+  XGBOOSTING = si.xgboost.total,
+  GLM = si.glm.total,
+  GLMNET = si.glmnet.total
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.si$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.si <- cbind(lista.si.svm,
+                        lista.si.knn,
+                        lista.si.bayes,
+                        lista.si.arbol,
+                        lista.si.bosque,
+                        lista.si.potenciacion,
+                        lista.si.red,
+                        lista.si.xgboost,
+                        lista.si.glm,
+                        lista.si.glmnet)
+
+# Crea el gráfico de líneas
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SI")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "BAYES", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "RED", "XGBOOSTING", "GLM", "GLMNET"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(si)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SI",
+       x = "Método",
+       y = "Detección del SI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Analisis de resultados
+
+**Precisión Global**
+
+-   **Mejor modelo en precisión global**: Bosques(86.89%) seguido por Potenciacion (85.81%) y GLM (84.85%).
+
+-   **Modelos más bajos en precisión global**: Bayes (78.11%) y KNN (80.30%).
+
+**Detección del "NO" (Alta precisión en rechazar falsos positivos)**
+
+-   **Mejor modelo para detectar el "NO"**: Bosques(94.91%), seguido por GLMNET (93.19%) y Potenciacion (92.99%).
+
+-   **Modelos con peor detección del "NO"**: Bayes (82.16%) y Red Neuronal (91.67%).
+
+**Detección del "SÍ" (Alta precisión en detectar verdaderos positivos)**
+
+-   **Mejor modelo para detectar el "SÍ"**: XGBoosting (72.116%) seguido por Potenciación (70.13%) y Bosques  (69.33%) .
+
+-   **Modelos con peor detección del "SÍ"**: KNN (51.81%) y Red Neuronal (63.80%).
+
+**Balance entre Detección del "NO" y del "SÍ"**
+
+-   **XGBoosting** parece ser el mejor modelo en términos de equilibrio entre la detección de "NO" (91.323%) y la detección de "SÍ" (72.116%), manteniendo una precisión global alta (85.34%).
+
+-   **Bosques Aleatorios** también muestra un buen balance, con 94.91% en "NO", 69.33% en "SÍ", y una precisión global del 86.89%.
+
+**Conclusión:**
+
+Si se busca un buen balance entre la predicción del "NO" y del "SÍ", **XGBoosting** es el mejor modelo. Aunque su detección del "NO" no es la más alta, tiene un buen equilibrio con la detección del "SÍ", lo que lo hace el modelo más balanceado para este caso.
+
+
+### Segundo ciclo con los 4 mejores modelos
+
+```{r}
+numero.filas                <- nrow(df_ml)
+cantidad.validacion.cruzada <- 5
+cantidad.grupos             <- 10
+
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.arbol.total <- 0
+pg.bosque.total <- 0    
+pg.potenciacion.total <- 0
+pg.xgboost.total <- 0  
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+
+lista.pg.arbol <- list()
+lista.pg.bosque <- list()   
+lista.pg.potenciacion <- list()
+lista.pg.xgboost <- list()
+
+# Acumuladores del NO para el gráfico de barras
+no.arbol.total <- 0
+no.bosque.total <- 0    
+no.potenciacion.total <- 0
+no.xgboost.total <- 0  
+
+# Listas para guardar lel No en cada experimento para el gráfico de líneas
+lista.no.arbol <- list()
+lista.no.bosque <- list()   
+lista.no.potenciacion <- list()
+lista.no.xgboost <- list()
+
+# Acumuladores del SI para el gráfico de barras
+
+si.arbol.total <- 0
+si.bosque.total <- 0    
+si.potenciacion.total <- 0
+si.xgboost.total <- 0  
+
+# Listas para guardar del SI en cada experimento para el gráfico de líneas
+
+lista.si.arbol <- list()
+lista.si.bosque <- list()   
+lista.si.potenciacion <- list()
+lista.si.xgboost <- list()
+
+
+# Validación cruzada 5 veces
+for (i in 1:cantidad.validacion.cruzada) {
+  grupos <- createFolds(1:numero.filas, cantidad.grupos) # Crea los 10 grupos
+  # Acumuladores de la Precisión Global para el gráfico de barras
+  pg.arbol <- 0
+  pg.bosque <- 0    
+  pg.potenciacion <- 0
+  pg.xgboost <- 0  
+   
+  
+  # Acumuladores del NO para el gráfico de barras
+  no.arbol <- 0
+  no.bosque <- 0    
+  no.potenciacion <- 0
+  no.xgboost <- 0  
+  
+  
+    # Acumuladores del SI para el gráfico de barras
+
+  si.arbol <- 0
+  si.bosque <- 0    
+  si.potenciacion <- 0
+  si.xgboost <- 0  
+
+  
+  # Este ciclo es el que hace validación cruzada con 10 grupos
+  for (k in 1:cantidad.grupos) {
+    muestra   <- grupos[[k]] # Por ser una lista requiere de doble paréntesis
+    ttesting  <- df_ml[muestra, ]
+    ttraining <- df_ml[-muestra, ]
+    
+    modelo          <- train.rpart(calidad ~ ., data = ttraining, cp = 0.05, maxdepth = 15)
+    prediccion      <- predict(modelo, ttesting)
+    pg.arbol <- pg.arbol + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.arbol <- no.arbol + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.arbol <- si.arbol + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.randomForest(calidad ~ ., data = ttraining,ntree = 100, mtry = 4)
+    prediccion      <- predict(modelo, ttesting)
+    pg.bosque <- pg.bosque + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.bosque <- no.bosque + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.bosque <- si.bosque + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.ada(calidad ~ ., data = ttraining, iter = 50, nu = 0.1, type = "discrete")
+    prediccion      <- predict(modelo, ttesting)
+    pg.potenciacion <- pg.potenciacion + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.potenciacion <- no.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.potenciacion <- si.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[2]
+    
+    modelo          <- train.xgboost(calidad ~ ., data = ttraining,booster = 'dart', nrounds = 79,
+                                   print_every_n = 10, maximize = F , eval_metric = "error",verbose = 0)
+    prediccion      <- predict(modelo, ttesting)
+    pg.xgboost <- pg.xgboost + general.indexes(ttesting,prediccion)$overall.accuracy
+    no.xgboost <- no.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[1]
+    si.xgboost <- si.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  }
+  
+
+  pg.arbol <- pg.arbol/cantidad.grupos
+  pg.bosque <- pg.bosque/cantidad.grupos
+  pg.potenciacion <- pg.potenciacion/cantidad.grupos
+  pg.xgboost <- pg.xgboost/cantidad.grupos
+
+
+  pg.arbol.total <- pg.arbol.total + pg.arbol
+  pg.bosque.total <- pg.bosque.total + pg.bosque
+  pg.potenciacion.total <- pg.potenciacion.total + pg.potenciacion
+  pg.xgboost.total <- pg.xgboost.total + pg.xgboost
+  
+  lista.pg.arbol <- append(lista.pg.arbol,pg.arbol)
+  lista.pg.bosque <- append(lista.pg.bosque,pg.bosque)
+  lista.pg.potenciacion <- append(lista.pg.potenciacion,pg.potenciacion)
+  lista.pg.xgboost <- append(lista.pg.xgboost,pg.xgboost)
+
+
+  no.arbol <- no.arbol/cantidad.grupos
+  no.bosque <- no.bosque/cantidad.grupos
+  no.potenciacion <- no.potenciacion/cantidad.grupos
+  no.xgboost <- no.xgboost/cantidad.grupos
+  
+  
+
+  si.arbol <- si.arbol/cantidad.grupos
+  si.bosque <- si.bosque/cantidad.grupos
+  si.potenciacion <- si.potenciacion/cantidad.grupos
+  si.xgboost <- si.xgboost/cantidad.grupos
+
+
+  no.arbol.total <- no.arbol.total + no.arbol
+  no.bosque.total <- no.bosque.total + no.bosque
+  no.potenciacion.total <- no.potenciacion.total + no.potenciacion
+  no.xgboost.total <- no.xgboost.total + no.xgboost
+ 
+
+  si.arbol.total <- si.arbol.total + si.arbol
+  si.bosque.total <- si.bosque.total + si.bosque
+  si.potenciacion.total <- si.potenciacion.total + si.potenciacion
+  si.xgboost.total <- si.xgboost.total + si.xgboost
+
+  
+  lista.no.arbol <- append(lista.no.arbol,no.arbol)
+  lista.no.bosque <- append(lista.no.bosque,no.bosque)
+  lista.no.potenciacion <- append(lista.no.potenciacion,no.potenciacion)
+  lista.no.xgboost <- append(lista.no.xgboost,no.xgboost)
+
+
+  lista.si.arbol <- append(lista.si.arbol,si.arbol)
+  lista.si.bosque <- append(lista.si.bosque,si.bosque)
+  lista.si.potenciacion <- append(lista.si.potenciacion,si.potenciacion)
+  lista.si.xgboost <- append(lista.si.xgboost,si.xgboost)
+
+  
+  
+}
+
+pg.arbol.total <- pg.arbol.total/cantidad.validacion.cruzada
+pg.bosque.total <- pg.bosque.total/cantidad.validacion.cruzada
+pg.potenciacion.total <- pg.potenciacion.total/cantidad.validacion.cruzada
+pg.xgboost.total <- pg.xgboost.total/cantidad.validacion.cruzada
+
+
+no.arbol.total <- no.arbol.total/cantidad.validacion.cruzada
+no.bosque.total <- no.bosque.total/cantidad.validacion.cruzada
+no.potenciacion.total <- no.potenciacion.total/cantidad.validacion.cruzada
+no.xgboost.total <- no.xgboost.total/cantidad.validacion.cruzada
+
+
+si.arbol.total <- si.arbol.total/cantidad.validacion.cruzada
+si.bosque.total <- si.bosque.total/cantidad.validacion.cruzada
+si.potenciacion.total <- si.potenciacion.total/cantidad.validacion.cruzada
+si.xgboost.total <- si.xgboost.total/cantidad.validacion.cruzada
+
+
+```
+
+```{r}
+# Lista de precisiones globales para el gráfico de barras
+lista.pg <- list(
+  ARBOL = pg.arbol.total,
+  BOSQUES = pg.bosque.total,
+  POTENCIACIÓN = pg.potenciacion.total,  
+  XGBOOSTING = pg.xgboost.total
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.pg$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(
+                        lista.pg.arbol,
+                        lista.pg.bosque,
+                        lista.pg.potenciacion,
+                        lista.pg.xgboost)
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("ÁRBOL", "BOSQUES", "POTENCIACIÓN","XGBOOSTING"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(precision)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del NO para el gráfico de barras
+lista.no <- list(
+
+  ARBOL = no.arbol.total,
+  BOSQUES = no.bosque.total,
+  POTENCIACIÓN = no.potenciacion.total,  
+  XGBOOSTING = no.xgboost.total
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.no$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(
+                        lista.no.arbol,
+                        lista.no.bosque,
+                        lista.no.potenciacion,
+                        lista.no.xgboost)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("ÁRBOL", "BOSQUES", "POTENCIACIÓN", "XGBOOSTING"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(no)), vjust = -0.5, size = 3) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del SI para el gráfico de barras
+lista.si <- list(
+
+  ARBOL = si.arbol.total,
+  BOSQUES = si.bosque.total,
+  POTENCIACIÓN = si.potenciacion.total,  
+  XGBOOSTING = si.xgboost.total
+
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.no))
+
+# Asigna colores distintos a cada barra y para cada línea
+colores <- rainbow(length(df.si$metodo))
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.si <- cbind(
+                        lista.si.arbol,
+                        lista.si.bosque,
+                        lista.si.potenciacion,
+                        lista.si.xgboost
+                      )
+
+# Crea el gráfico de líneas
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SI")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("ÁRBOL", "BOSQUES", "POTENCIACIÓN", "XGBOOSTING"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = percent(si)), vjust = -0.5, size = 2.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SI",
+       x = "Método",
+       y = "Detección del SI") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**El mejor modelos sigue siendo el XGBOOSTING por su desempeno en la prediccion del SI y NO**
+
+
+
+
+### Calcular mejor Probabilidad de Corte
+
+
+
+
+
+
+
+```{r}
+muestra      <- createDataPartition(y = df_ml$calidad, p = 0.85, list = F)
+taprendizaje <- df_ml[muestra, ]
+ttesting     <- df_ml[-muestra, ]  
+
+
+modelo          <- train.xgboost(calidad ~ ., data = taprendizaje, booster = 'dart', nrounds = 79,
+                                   print_every_n = 10, maximize = F , eval_metric = "error",verbose = 0)
+prediccion      <- predict(modelo, ttesting)
+mc           <- confusion.matrix(ttesting, prediccion)
+# Por defecto con probabilidad = 0.5 da los siguientes resultados
+general.indexes(mc = mc)
+```
+
+```{r}
+prediccion <- predict(modelo, ttesting, type = "prob") # Para que me retorne la probabilidad
+Clase      <- ttesting$calidad
+```
+
+```{r}
+# Inicializar los datos de las métricas para la tabla
+resultados <- data.frame(
+  "Corte de Probabilidad" = numeric(),
+  "Precisión General" = numeric(),
+  "Precisión Clase 'n'" = numeric(),
+  "Precisión Clase 'y'" = numeric(),
+  "Error General" = numeric()
+)
+
+# Clase y score obtenidos del modelo
+Clase <- ttesting$calidad
+Score <- prediccion$prediction[,"y"]
+
+# Ciclo para diferentes cortes de probabilidad
+for(Corte in seq(1, 0, by = -0.05)) {
+  # Predicción basada en el corte
+  Prediccion <- ifelse(Score >= Corte, "y", "n")
+  
+  # Matriz de confusión
+  MC <- table(Clase, Pred = factor(Prediccion, levels = c("n", "y")))
+  
+  # Obtener los índices generales
+  indices <- general.indexes(mc = MC)
+  
+  # Añadir los resultados a la tabla
+  resultados <- rbind(
+    resultados,
+    data.frame(
+      "Corte de Probabilidad" = Corte,
+      "Precisión General" = indices$overall.accuracy,
+      "Precisión Clase 'n'" = indices$category.accuracy["n"],
+      "Precisión Clase 'y'" = indices$category.accuracy["y"],
+      "Error General" = 1 - indices$overall.accuracy
+    )
+  )
+}
+
+# Encontrar las filas con los mejores resultados para "Precisión Clase 'n'" y "Precisión Clase 'y'"
+mejor_n <- which.max(resultados$`Precisión Clase 'n'`)
+mejor_y <- which.max(resultados$`Precisión Clase 'y'`)
+
+# Marcar en negrita las filas con los mejores resultados
+
+# Convertir a texto con negrita para las mejores filas
+resultados_markdown <- resultados
+resultados_markdown[mejor_n, ] <- lapply(resultados_markdown[mejor_n, ], function(x) paste0("**", x, "**"))
+resultados_markdown[mejor_y, ] <- lapply(resultados_markdown[mejor_y, ], function(x) paste0("**", x, "**"))
+
+# Mostrar los resultados en formato markdown
+kable(resultados_markdown, format = "markdown", col.names = c("Corte de Probabilidad", "Precisión General", "Precisión Clase 'n'", "Precisión Clase 'y'", "Error General"))
+
+```
